@@ -1,10 +1,7 @@
-# Doxyfile simplified configuration
-# Doxygen version 1.9.8
-
 #---------------------------------------------------------------------------
 # Project related settings
 #---------------------------------------------------------------------------
-PROJECT_NAME       = "My Project"
+PROJECT_NAME       = "Hsdlib"
 OUTPUT_DIRECTORY   = docs
 CREATE_SUBDIRS     = NO
 
@@ -24,7 +21,7 @@ GENERATE_HTML      = YES
 HTML_OUTPUT        = html
 
 # LaTeX output will be placed in docs/latex
-GENERATE_LATEX     = YES
+GENERATE_LATEX     = NO
 LATEX_OUTPUT       = latex
 
 #---------------------------------------------------------------------------

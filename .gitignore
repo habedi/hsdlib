@@ -140,3 +140,5 @@ poetry.lock
 docs/html
 docs/latex
 target
+*.d
+*_output.txt
