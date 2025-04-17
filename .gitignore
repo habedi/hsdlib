@@ -1,0 +1,142 @@
+########################
+# Python Specific
+########################
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+
+# Packaging
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+MANIFEST
+
+# Python Dependency tools
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+.installed.cfg
+
+# Python Test & Coverage
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints
+
+########################
+# C / C++ Specific
+########################
+
+# Build artifacts
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+*.out
+*.elf
+
+# CMake / Make / Autotools
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+makefile
+configure
+config.log
+config.status
+aclocal.m4
+autom4te.cache/
+compile
+install-sh
+ltmain.sh
+missing
+
+# Debug & Profiling
+*.dSYM/
+*.stackdump
+*.core
+core
+*.gcno
+*.gcda
+*.gcov
+*.profraw
+*.profdata
+
+# Test & Coverage
+coverage/
+coverage.*
+test-results/
+
+########################
+# IDE / Editor Junk
+########################
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+*.bak
+*.tmp
+*.log
+tags
+
+########################
+# Miscellaneous
+########################
+
+# Distribution
+bin/
+obj/
+tmp/
+temp/
+
+# System / misc
+.DS_Store
+*.patch
+*.orig
+*.dump
+
+# Local databases
+*.db
+*.sqlite
+*.wal
+*.duckdb
+
+# Dependency lock files (optional)
+poetry.lock
+
+# Additional files and directories to ignore (put below)
+docs/html
+docs/latex
+target
