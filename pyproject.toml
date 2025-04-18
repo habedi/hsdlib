@@ -1,8 +1,39 @@
 [tool.poetry]
-name = "hsdlib"
+name = "hsdpy"
 version = "0.1.0"
-description = "Python environment for Hsdlib"
+description = "Python bindings for the Hsdlib C library"
 authors = ["Hassan Abedi <hassan.abedi.t+hsdlib@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/habedi/hsdlib"
+
+packages = [
+    { include = "hsdpy", from = "python" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
+numpy = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies] # Development dependencies (need `--with=dev` flag)
+pytest = "^8.0.1"
+pytest-cov = "^6.0.0"
+pytest-mock = "^3.14.0"
+pytest-benchmark = "^5.1.0"
+mypy = "^1.11.1"
+ruff = "^0.9.3"
+scipy = "^1.15.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# Include the shared library files in the package
+[[tool.poetry.include]]
+path = "python/hsdpy/libhsd.so"
+
+[[tool.poetry.include]]
+path = "python/hsdpy/libhsd.dylib"
+
+[[tool.poetry.include]]
+path = "python/hsdpy/hsd.dll"

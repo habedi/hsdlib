@@ -19,9 +19,8 @@ SHARED_LIB  := $(LIB_DIR)/libhsd.so
 ####################################################################################################
 ## Build Configuration
 ####################################################################################################
-# Compiler and archiver
-CC   := gcc # Change to `clang` if needed
-# NVCC := nvcc # REMOVED CUDA compiler
+# Compiler (GCC or Clang by default) and archiver
+CC   := $(shell command -v gcc 2>/dev/null || command -v clang 2>/dev/null)
 AR   := ar
 
 # Shell configuration
@@ -223,18 +222,58 @@ lint: ## Run linter checks
 	         --suppress=constVariable \
 	         $(SRC_DIR) $(INC_DIR) $(TEST_DIR)
 
-.PHONY: docs
-docs: ## Generate docs with Doxygen
+.PHONY: doc
+doc: ## Generate documentation using Doxygen
 	@echo "Generating documentation..."
 	@test -f Doxyfile || { echo "Error: Doxyfile not found."; exit 1; }
 	doxygen Doxyfile
 
 .PHONY: clean
-clean: ## Remove all build artifacts, including coverage reports and test runner
+clean: python-clean ## Remove all build artifacts, including coverage reports and test runner
 	@echo "Cleaning up..."
 	rm -rf $(BIN_DIR) $(TARGET_DIR) $(LIB_DIR) $(COV_DIR)
 	find . \( -name '*.gcda' -o -name '*.gcno' -o -name '*.gcov' -o -name '*.d' -o -name '*.o' -o -name '*.a' -o -name '*.so' \) -delete
 	rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex
+
+#################################################################################################
+## Python Targets
+#################################################################################################
+# --- Python Build Variables ---
+PYTHON_DIST_DIR := dist
+PYTHON_BUILD_DIR := build
+PYTHON_EGG_INFO := $(shell find . -maxdepth 2 -type d -name '*.egg-info') UNKNOWN.egg-info
+
+.PHONY: python-wheel
+python-wheel: shared ## Build shared library, copy it, then build wheel via Poetry
+	@echo "Copying shared library into Python package..."
+	# copy libhsd.so (or .dylib on mac, dll on Windows) into the hsdpy folder
+	cp $(SHARED_LIB) python/hsdpy/
+	@echo "Building wheel via Poetry..."
+	poetry build -f wheel -o $(PYTHON_DIST_DIR)
+
+.PHONY: python-install-wheel
+python-install-wheel: python-wheel ## Build the wheel and install it into the Poetry venv
+	@echo "Finding wheel file in $(PYTHON_DIST_DIR)..."
+	$(eval WHEEL_FILE := $(shell find $(PYTHON_DIST_DIR) -type f -name '*.whl' | head -n 1))
+	@if [ -z "$(WHEEL_FILE)" ]; then \
+		echo "ERROR: No wheel file found in $(PYTHON_DIST_DIR)."; exit 1; \
+	fi
+	@echo "Installing wheel: $(WHEEL_FILE)..."
+	poetry run pip install --force-reinstall --no-deps "$(WHEEL_FILE)"
+
+.PHONY: python-test
+python-test: ## Run Python tests (requires Poetry env)
+	@echo "Running Python tests..."
+	poetry run pytest python/tests --tb=short --disable-warnings -q
+
+.PHONY: python-clean
+python-clean: ## Remove Python build artifacts and copied libs
+	@echo "Cleaning Python build artifacts..."
+	rm -rf $(PYTHON_DIST_DIR) $(PYTHON_BUILD_DIR) $(PYTHON_EGG_INFO)
+	@echo "Removing packaged shared libs from python/hsdpy..."
+	rm -f python/hsdpy/libhsd.so python/hsdpy/libhsd.dylib python/hsdpy/hsd.dll
+	@echo "Clearing Python bytecode caches..."
+	find python -type d -name '__pycache__' -exec rm -rf {} +
 
 # Include dependency files
 -include $(DEP_FILES)

@@ -6,11 +6,13 @@
 
 typedef int hsd_status_t;
 
-#define HSD_SUCCESS 0
-#define HSD_ERR_NULL_PTR -1
-#define HSD_ERR_DIM_MISMATCH -2
-#define HSD_ERR_UNSUPPORTED -3
-#define HSD_FAILURE -99
+enum {
+    HSD_SUCCESS       =  0,
+    HSD_ERR_NULL_PTR  = -1,
+    HSD_ERR_DIM_MISMATCH = -2,
+    HSD_ERR_UNSUPPORTED  = -3,
+    HSD_FAILURE       = -99
+};
 
 #ifdef NO_AVX512
 #undef __AVX512F__
