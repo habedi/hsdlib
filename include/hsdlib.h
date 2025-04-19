@@ -7,11 +7,11 @@
 typedef int hsd_status_t;
 
 enum {
-    HSD_SUCCESS       =  0,
-    HSD_ERR_NULL_PTR  = -1,
+    HSD_SUCCESS = 0,
+    HSD_ERR_NULL_PTR = -1,
     HSD_ERR_DIM_MISMATCH = -2,
-    HSD_ERR_UNSUPPORTED  = -3,
-    HSD_FAILURE       = -99
+    HSD_ERR_UNSUPPORTED = -3,
+    HSD_FAILURE = -99
 };
 
 #ifdef NO_AVX512
@@ -32,9 +32,6 @@ hsd_status_t hsd_hamming_i8(const int8_t *a, const int8_t *b, size_t n, float *r
 // Similarity measures
 hsd_status_t hsd_dot_f32(const float *a, const float *b, size_t n, float *result);
 hsd_status_t hsd_jaccard_u16(const uint16_t *a, const uint16_t *b, size_t n, float *result);
-
-// Vector operations
-hsd_status_t hsd_normalize_l2_f32(float *vec, size_t n);
 
 // Utility functions
 static const char *hsd_get_backend(void) {

@@ -10,7 +10,6 @@ extern void run_dot_tests(void);
 extern void run_manhattan_tests(void);
 extern void run_hamming_tests(void);
 extern void run_jaccard_tests(void);
-extern void run_vector_ops_tests(void);
 
 int main(void) {
     printf("Starting Hsdlib Test Suite...\n");
@@ -24,7 +23,6 @@ int main(void) {
     run_manhattan_tests();
     run_hamming_tests();
     run_jaccard_tests();
-    run_vector_ops_tests();
 
     printf("\n--- Test Suite Summary ---\n");
     if (g_test_failed > 0) {
