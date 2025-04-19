@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img alt="Hsdlib Logo" src="logo.svg" height="25%" width="25%">
+    <img alt="Hsdlib Logo" src="logo.svg" height="80%" width="80%">
   </picture>
 <br>
 
@@ -21,8 +21,7 @@ Hardware-accelerated distance metrics and similarity measures in C
 ---
 
 Hsdlib is a C library that provides hardware-accelerated implementations of popular distance metrics and
-similarity measures like Euclidean and cosine distances, and dot product and Jacquard similarities for
-high-dimensional data.
+similarity measures for high-dimensional data.
 It automatically selects and uses the best implementation based on the available CPU features for maximizing
 performance.
 
