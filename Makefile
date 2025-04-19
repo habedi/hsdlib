@@ -282,7 +282,7 @@ install-deps: ## Install development dependencies (for Debian-based systems)
 	@echo "Installing Python dependencies..."
 	pip3 install -U uv
 	@echo "Installing Zig..."
-	snap install zig --classic --beta
+	sudo snap install zig --classic --beta
 
 .PHONY: format
 format: ## Format C files

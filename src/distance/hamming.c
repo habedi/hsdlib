@@ -120,7 +120,7 @@ static inline hsd_status_t hamming_avx2_pshufb_internal(const uint8_t *a, const 
 
     uint64_t sums[4];
     _mm256_storeu_si256((__m256i *)sums, total_popcnt_sad);
-    uint64_t total_diff_bits = sums[0] + sums[2];
+    uint64_t total_diff_bits = sums[0] + sums[1] + sums[2] + sums[3];
 
     for (; i < n; ++i) {
         total_diff_bits += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);

@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img alt="Hsdlib Logo" src="logo.svg" height="80%" width="80%">
+    <img alt="Hsdlib Logo" src="logo.svg" height="50%" width="50%">
   </picture>
 <br>
 
