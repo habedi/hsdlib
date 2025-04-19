@@ -25,14 +25,14 @@ static inline hsd_status_t dot_scalar_internal(const float *a, const float *b, s
     for (size_t i = 0; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("Scalar Input Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
     }
 
     if (isnan(dot_product) || isinf(dot_product)) {
         hsd_log("Scalar Result Check: Final dot product is NaN or Inf (value: %.8e)", dot_product);
-        return HSD_FAILURE;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = dot_product;
@@ -41,7 +41,6 @@ static inline hsd_status_t dot_scalar_internal(const float *a, const float *b, s
 }
 
 #if defined(__AVX__)
-
 static inline hsd_status_t dot_avx_internal(const float *a, const float *b, size_t n,
                                             float *result) {
     hsd_log("Enter dot_avx_internal (n=%zu)", n);
@@ -63,14 +62,14 @@ static inline hsd_status_t dot_avx_internal(const float *a, const float *b, size
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("AVX Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
     }
 
     if (isnan(dot_product) || isinf(dot_product)) {
         hsd_log("AVX Result Check: Final dot product is NaN or Inf (value: %.8e)", dot_product);
-        return HSD_FAILURE;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = dot_product;
@@ -84,7 +83,6 @@ static inline hsd_status_t dot_avx2_internal(const float *a, const float *b, siz
                                              float *result) {
     hsd_log("Enter dot_avx2_internal (using AVX impl) (n=%zu)", n);
 #if defined(__AVX__)
-
     hsd_status_t status = dot_avx_internal(a, b, n, result);
     hsd_log("Exit dot_avx2_internal (status=%d)", status);
     return status;
@@ -115,14 +113,14 @@ static inline hsd_status_t dot_avx512_internal(const float *a, const float *b, s
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("AVX512 Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
     }
 
     if (isnan(dot_product) || isinf(dot_product)) {
         hsd_log("AVX512 Result Check: Final dot product is NaN or Inf (value: %.8e)", dot_product);
-        return HSD_FAILURE;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = dot_product;
@@ -155,14 +153,14 @@ static inline hsd_status_t dot_neon_internal(const float *a, const float *b, siz
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("NEON Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
     }
 
     if (isnan(dot_product) || isinf(dot_product)) {
         hsd_log("NEON Result Check: Final dot product is NaN or Inf (value: %.8e)", dot_product);
-        return HSD_FAILURE;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = dot_product;
@@ -191,7 +189,7 @@ static inline hsd_status_t dot_sve_internal(const float *a, const float *b, size
 
     if (isnan(dot_product) || isinf(dot_product)) {
         hsd_log("SVE Result Check: Final dot product is NaN or Inf (value: %.8e)", dot_product);
-        return HSD_FAILURE;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = dot_product;
@@ -200,17 +198,22 @@ static inline hsd_status_t dot_sve_internal(const float *a, const float *b, size
 }
 #endif
 
-hsd_status_t hsd_dot_f32(const float *a, const float *b, size_t n, float *result) {
-    hsd_log("Enter hsd_dot_f32 (n=%zu)", n);
+hsd_status_t hsd_sim_dot_f32(const float *a, const float *b, size_t n, float *result) {
+    hsd_log("Enter hsd_sim_dot_f32 (n=%zu)", n);
 
-    if (a == NULL || b == NULL || result == NULL) {
-        hsd_log("Input pointers are NULL!");
+    if (result == NULL) {
+        hsd_log("Result pointer is NULL!");
         return HSD_ERR_NULL_PTR;
     }
     if (n == 0) {
         hsd_log("n is 0, dot product is 0.");
         *result = 0.0f;
         return HSD_SUCCESS;
+    }
+    if (a == NULL || b == NULL) {
+        hsd_log("Input array pointers are NULL for non-zero n!");
+        *result = NAN;
+        return HSD_ERR_NULL_PTR;
     }
 
     hsd_status_t status = HSD_FAILURE;
@@ -239,9 +242,9 @@ hsd_status_t hsd_dot_f32(const float *a, const float *b, size_t n, float *result
     if (status != HSD_SUCCESS) {
         hsd_log("CPU backend failed (status=%d).", status);
     } else {
-        hsd_log("CPU backend succeeded.");
+        hsd_log("CPU backend succeeded. Dot product: %f", *result);
     }
 
-    hsd_log("Exit hsd_dot_f32 (final status=%d)", status);
+    hsd_log("Exit hsd_sim_dot_f32 (final status=%d)", status);
     return status;
 }

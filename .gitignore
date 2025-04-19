@@ -99,6 +99,13 @@ coverage.*
 test-results/
 
 ########################
+# Zig Specific
+########################
+zig-cache/
+.zig-cache/
+zig-out/
+
+########################
 # IDE / Editor Junk
 ########################
 .idea/
@@ -143,3 +150,4 @@ target
 *.d
 *_output.txt
 python/hsdpy/*.c
+uv.lock

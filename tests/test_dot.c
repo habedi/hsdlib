@@ -5,11 +5,11 @@
 
 #include "test_common.h"
 
-void run_dot_tests(void) {
-    printf("\n======= Running Dot Product Tests =======\n");
+void run_dot_sim_tests(void) {
+    printf("\n======= Running Dot Product Similarity Tests =======\n");
 
-    hsd_func_f32_f32 func_ptr = hsd_dot_f32;
-    const char *func_name = "hsd_dot_f32";
+    hsd_func_f32_f32 func_ptr = hsd_sim_dot_f32;
+    const char *func_name = "hsd_sim_dot_f32";
 
     const float vec1[] = {1.0f, 2.0f, 3.0f};
     const float vec2[] = {4.0f, 5.0f, 6.0f};
@@ -18,7 +18,8 @@ void run_dot_tests(void) {
 
     const float v_ident1[] = {1.1f, -2.2f, 3.3f, -4.4f};
     const float v_ident2[] = {1.1f, -2.2f, 3.3f, -4.4f};
-    run_test_f32(func_ptr, func_name, "Identical Vectors", v_ident1, v_ident2, 4, 36.3f, 1e-5f);
+    run_test_f32(func_ptr, func_name, "Identical Vectors", v_ident1, v_ident2, 4,
+                 simple_dot_f32(v_ident1, v_ident2, 4), 1e-5f);  // Use helper for precision
 
     const float v_para1[] = {1.0f, 2.0f, 3.0f};
     const float v_para2[] = {2.0f, 4.0f, 6.0f};
@@ -66,7 +67,7 @@ void run_dot_tests(void) {
 
     const float v3_a[] = {1, 2, 3};
     const float v3_b[] = {4, 5, 6};
-    run_test_f32(func_ptr, func_name, "Dimension 3", v3_a, v3_b, 3, simple_dot(v3_a, v3_b, 3),
+    run_test_f32(func_ptr, func_name, "Dimension 3", v3_a, v3_b, 3, simple_dot_f32(v3_a, v3_b, 3),
                  1e-6f);
 
     float v7_a[7], v7_b[7];
@@ -74,7 +75,7 @@ void run_dot_tests(void) {
         v7_a[i] = (float)i + 1.0f;
         v7_b[i] = (float)i + 2.0f;
     }
-    run_test_f32(func_ptr, func_name, "Dimension 7", v7_a, v7_b, 7, simple_dot(v7_a, v7_b, 7),
+    run_test_f32(func_ptr, func_name, "Dimension 7", v7_a, v7_b, 7, simple_dot_f32(v7_a, v7_b, 7),
                  1e-6f);
 
     float v8_a[8], v8_b[8];
@@ -82,7 +83,7 @@ void run_dot_tests(void) {
         v8_a[i] = (float)i + 1.0f;
         v8_b[i] = (float)i + 2.0f;
     }
-    run_test_f32(func_ptr, func_name, "Dimension 8", v8_a, v8_b, 8, simple_dot(v8_a, v8_b, 8),
+    run_test_f32(func_ptr, func_name, "Dimension 8", v8_a, v8_b, 8, simple_dot_f32(v8_a, v8_b, 8),
                  1e-5f);
 
     float v9_a[9], v9_b[9];
@@ -90,7 +91,7 @@ void run_dot_tests(void) {
         v9_a[i] = (float)i + 1.0f;
         v9_b[i] = (float)i + 2.0f;
     }
-    run_test_f32(func_ptr, func_name, "Dimension 9", v9_a, v9_b, 9, simple_dot(v9_a, v9_b, 9),
+    run_test_f32(func_ptr, func_name, "Dimension 9", v9_a, v9_b, 9, simple_dot_f32(v9_a, v9_b, 9),
                  1e-5f);
 
     float v15_a[15], v15_b[15];
@@ -99,7 +100,7 @@ void run_dot_tests(void) {
         v15_b[i] = (float)i + 2.0f;
     }
     run_test_f32(func_ptr, func_name, "Dimension 15", v15_a, v15_b, 15,
-                 simple_dot(v15_a, v15_b, 15), 1e-5f);
+                 simple_dot_f32(v15_a, v15_b, 15), 1e-5f);
 
     float v16_a[16], v16_b[16];
     for (int i = 0; i < 16; ++i) {
@@ -107,7 +108,7 @@ void run_dot_tests(void) {
         v16_b[i] = (float)i + 2.0f;
     }
     run_test_f32(func_ptr, func_name, "Dimension 16", v16_a, v16_b, 16,
-                 simple_dot(v16_a, v16_b, 16), 1e-5f);
+                 simple_dot_f32(v16_a, v16_b, 16), 1e-5f);
 
     float v17_a[17], v17_b[17];
     for (int i = 0; i < 17; ++i) {
@@ -115,12 +116,12 @@ void run_dot_tests(void) {
         v17_b[i] = (float)i + 2.0f;
     }
     run_test_f32(func_ptr, func_name, "Dimension 17", v17_a, v17_b, 17,
-                 simple_dot(v17_a, v17_b, 17), 1e-5f);
+                 simple_dot_f32(v17_a, v17_b, 17), 1e-5f);
 
     const float v_small1[] = {1e-20f, 2e-20f};
     const float v_small2[] = {3e-20f, 4e-20f};
     run_test_f32(func_ptr, func_name, "Small Values", v_small1, v_small2, 2,
-                 simple_dot(v_small1, v_small2, 2), 1e-45f);
+                 simple_dot_f32(v_small1, v_small2, 2), 1e-45f);
 
     const float v_small3[] = {1e-30f, 0.0f};
     const float v_small4[] = {0.0f, 1e-30f};
@@ -129,7 +130,6 @@ void run_dot_tests(void) {
 
     const float v_large1[] = {1e19f, 1e19f};
     const float v_large2[] = {2e19f, 2e19f};
-
     run_test_expect_failure_status_f32(func_ptr, func_name, "Large Values (Expect Failure)",
                                        v_large1, v_large2, 2);
 
@@ -148,7 +148,7 @@ void run_dot_tests(void) {
 
     printf("-- Running test: NULL Pointer: result [%s] (n=3) --\n", func_name);
     hsd_log("Test setup: Expecting HSD_ERR_NULL_PTR status");
-    hsd_status_t status = hsd_dot_f32(v_ok, v_ok, 3, NULL);
+    hsd_status_t status = hsd_sim_dot_f32(v_ok, v_ok, 3, NULL);
     if (status == HSD_ERR_NULL_PTR) {
         printf("PASS: NULL Pointer: result [%s] (Correctly returned status %d)\n", func_name,
                status);
@@ -171,5 +171,5 @@ void run_dot_tests(void) {
     run_test_expect_failure_status_f32(func_ptr, func_name, "Infinity Input Vec B", v_ok, v_inf2,
                                        3);
 
-    printf("======= Finished Dot Product Tests =======\n");
+    printf("======= Finished Dot Product Similarity Tests =======\n");
 }

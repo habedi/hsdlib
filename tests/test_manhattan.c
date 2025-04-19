@@ -5,15 +5,17 @@
 
 #include "test_common.h"
 
-void run_manhattan_tests(void) {
-    printf("\n======= Running Manhattan Tests =======\n");
+void run_manhattan_dist_tests(void) {
+    printf("\n======= Running Manhattan Distance Tests =======\n");
 
-    hsd_func_f32_f32 func_ptr = hsd_manhattan_f32;
-    const char *func_name = "hsd_manhattan_f32";
+    hsd_func_f32_f32 func_ptr = hsd_dist_manhattan_f32;
+    const char *func_name = "hsd_dist_manhattan_f32";
 
     const float vec1[] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f};
     const float vec2[] = {9.0f, 8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f};
-
+    // Diff = {-8, -6, -4, -2, 0, 2, 4, 6, 8}
+    // Abs Diff = {8, 6, 4, 2, 0, 2, 4, 6, 8}
+    // Sum = 2 * (8+6+4+2) = 2 * 20 = 40
     run_test_f32(func_ptr, func_name, "Basic Test", vec1, vec2, 9, 40.0f, 1e-6f);
 
     const float v_ident1[] = {1.1f, -2.2f, 3.3f, -4.4f};
@@ -22,10 +24,12 @@ void run_manhattan_tests(void) {
 
     const float v_zero[] = {0.0f, 0.0f, 0.0f};
     const float v_340[] = {3.0f, 4.0f, 0.0f};
+    // Abs Diff = {3, 4, 0} -> Sum = 7
     run_test_f32(func_ptr, func_name, "Zero Vector vs Non-Zero", v_zero, v_340, 3, 7.0f, 1e-7f);
 
     const float v_neg1[] = {-1.0f, -2.0f};
     const float v_neg2[] = {-4.0f, -6.0f};
+    // Diff = {3, 4} -> Abs Diff = {3, 4} -> Sum = 7
     run_test_f32(func_ptr, func_name, "Negative Coordinates", v_neg1, v_neg2, 2, 7.0f, 1e-7f);
 
     const float v_dummy[1] = {0.0f};
@@ -33,17 +37,19 @@ void run_manhattan_tests(void) {
 
     const float v1_a[] = {5.5f};
     const float v1_b[] = {-2.0f};
+    // Abs Diff = |5.5 - (-2.0)| = 7.5
     run_test_f32(func_ptr, func_name, "One Dimension", v1_a, v1_b, 1, 7.5f, 1e-7f);
 
     const float v3_a[] = {1, 2, 3};
     const float v3_b[] = {4, 5, 6};
+    // Abs Diff = {3, 3, 3} -> Sum = 9
     run_test_f32(func_ptr, func_name, "Dimension 3", v3_a, v3_b, 3, 9.0f, 1e-6f);
 
     float v7_a[7], v7_b[7];
     for (int i = 0; i < 7; ++i) {
         v7_a[i] = 1.0f;
         v7_b[i] = 2.0f;
-    }
+    }  // Abs Diff = {1,...} -> Sum = 7
     run_test_f32(func_ptr, func_name, "Dimension 7", v7_a, v7_b, 7, 7.0f, 1e-6f);
     float v8_a[8], v8_b[8];
     for (int i = 0; i < 8; ++i) {
@@ -79,12 +85,12 @@ void run_manhattan_tests(void) {
     const float v_small1[] = {1e-20f, 2e-20f};
     const float v_small2[] = {3e-20f, 4e-20f};
     run_test_f32(func_ptr, func_name, "Small Values", v_small1, v_small2, 2,
-                 simple_manhattan(v_small1, v_small2, 2), 1e-25f);
+                 simple_manhattan_f32(v_small1, v_small2, 2), 1e-25f);
 
     const float v_large1[] = {1e19f, 0.0f};
     const float v_large2[] = {0.0f, 1e19f};
     run_test_f32(func_ptr, func_name, "Large Values", v_large1, v_large2, 2,
-                 simple_manhattan(v_large1, v_large2, 2), 1e13f);
+                 simple_manhattan_f32(v_large1, v_large2, 2), 1e13f);
 
     const float v_overflow1[] = {FLT_MAX, FLT_MAX};
     const float v_overflow2[] = {0.0f, 0.0f};
@@ -97,7 +103,7 @@ void run_manhattan_tests(void) {
 
     printf("-- Running test: NULL Pointer: result [%s] (n=3) --\n", func_name);
     hsd_log("Test setup: Expecting HSD_ERR_NULL_PTR status");
-    hsd_status_t status = hsd_manhattan_f32(v_ok, v_ok, 3, NULL);
+    hsd_status_t status = hsd_dist_manhattan_f32(v_ok, v_ok, 3, NULL);
     if (status == HSD_ERR_NULL_PTR) {
         printf("PASS: NULL Pointer: result [%s] (Correctly returned status %d)\n", func_name,
                status);
@@ -120,5 +126,5 @@ void run_manhattan_tests(void) {
     run_test_expect_failure_status_f32(func_ptr, func_name, "Infinity Input Vec B", v_ok, v_inf2,
                                        3);
 
-    printf("======= Finished Manhattan Tests =======\n");
+    printf("======= Finished Manhattan Distance Tests =======\n");
 }

@@ -3,26 +3,29 @@
 
 #include "test_common.h"
 
-extern void run_hsdlib_header_tests(void);
-extern void run_euclidean_tests(void);
-extern void run_cosine_tests(void);
-extern void run_dot_tests(void);
-extern void run_manhattan_tests(void);
-extern void run_hamming_tests(void);
-extern void run_jaccard_tests(void);
+extern void run_utils_tests(void);
+extern void run_sqeuclidean_dist_tests(void);
+extern void run_cosine_sim_tests(void);
+extern void run_dot_sim_tests(void);
+extern void run_manhattan_dist_tests(void);
+extern void run_hamming_dist_tests(void);
+extern void run_jaccard_sim_tests(void);
 
 int main(void) {
     printf("Starting Hsdlib Test Suite...\n");
 
     g_test_failed = 0;
 
-    run_hsdlib_header_tests();
-    run_euclidean_tests();
-    run_cosine_tests();
-    run_dot_tests();
-    run_manhattan_tests();
-    run_hamming_tests();
-    run_jaccard_tests();
+    // Run all tests
+    run_manhattan_dist_tests();
+    run_sqeuclidean_dist_tests();
+    run_hamming_dist_tests();
+
+    run_cosine_sim_tests();
+    run_dot_sim_tests();
+    run_jaccard_sim_tests();
+
+    run_utils_tests();
 
     printf("\n--- Test Suite Summary ---\n");
     if (g_test_failed > 0) {

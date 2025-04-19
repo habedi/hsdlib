@@ -1,128 +1,129 @@
-import os
 import ctypes
-from ctypes import c_float, c_int, c_size_t, c_uint16, c_int8, POINTER, byref
-import numpy as np
+import os
+import platform
+import sys
+from ctypes import (
+    c_float, c_int, c_size_t, c_uint16, c_uint8, c_uint64,
+    POINTER, c_char_p
+)
+from ctypes.util import find_library
 
-# Load shared library
-_here = os.path.dirname(__file__)
-_lib = None
-for name in ("libhsd.so", "libhsd.dylib", "hsd.dll"):
-    path = os.path.join(_here, name)
-    if os.path.exists(path):
-        _lib = ctypes.CDLL(path)
-        break
-if _lib is None:
-    from ctypes.util import find_library
-    libname = find_library("hsd")
-    if libname:
-        _lib = ctypes.CDLL(libname)
-if _lib is None:
-    raise OSError("could not load hsdlib (libhsd.so / libhsd.dylib / hsd.dll)")
 
-# Type aliases
-_float_p = POINTER(c_float)
-_size_t = c_size_t
-_uint16_p = POINTER(c_uint16)
-_int8_p = POINTER(c_int8)
+HSD_SUCCESS = 0
+HSD_ERR_NULL_PTR = -1
+HSD_ERR_UNSUPPORTED = -2
+HSD_ERR_INVALID_INPUT = -3
+HSD_FAILURE = -99
 
-# C signatures
-_lib.hsd_euclidean_f32.argtypes = (_float_p, _float_p, _size_t, _float_p)
-_lib.hsd_cosine_f32.argtypes = (_float_p, _float_p, _size_t, _float_p)
-_lib.hsd_manhattan_f32.argtypes = (_float_p, _float_p, _size_t, _float_p)
-_lib.hsd_dot_f32.argtypes = (_float_p, _float_p, _size_t, _float_p)
-_lib.hsd_jaccard_u16.argtypes = (_uint16_p, _uint16_p, _size_t, _float_p)
-_lib.hsd_hamming_i8.argtypes = (_int8_p, _int8_p, _size_t, _float_p)
-_lib.hsd_normalize_l2_f32.argtypes = (_float_p, _size_t)
+def _load_hsd_library():
+    lib_prefix = "lib"
+    lib_suffix = ".so"
+    if platform.system() == "Darwin":
+        lib_suffix = ".dylib"
+    elif platform.system() == "Windows":
+        lib_prefix = ""
+        lib_suffix = ".dll"
 
-# Return types
-_lib.hsd_euclidean_f32.restype = c_int
-_lib.hsd_cosine_f32.restype = c_int
-_lib.hsd_manhattan_f32.restype = c_int
-_lib.hsd_dot_f32.restype = c_int
-_lib.hsd_jaccard_u16.restype = c_int
-_lib.hsd_hamming_i8.restype = c_int
-_lib.hsd_normalize_l2_f32.restype = c_int
+    lib_name = f"{lib_prefix}hsd{lib_suffix}"
+    _here = os.path.dirname(__file__)
 
-# Helpers
-def _check_1d(a, dtype):
-    if not isinstance(a, np.ndarray):
-        raise TypeError("input must be a NumPy array")
-    if a.dtype != dtype:
-        raise TypeError(f"array must be {dtype}")
-    if a.ndim != 1:
-        raise ValueError("array must be 1-dimensional")
-    if not a.flags['C_CONTIGUOUS']:
-        a = np.ascontiguousarray(a, dtype=dtype)
-    return a
+    lib_path_pkg = os.path.join(_here, lib_name)
+    if os.path.exists(lib_path_pkg):
+        try:
+            return ctypes.CDLL(lib_path_pkg) if platform.system() != "Windows" else ctypes.WinDLL(
+                lib_path_pkg)
+        except OSError as e:
+            print(f"Warning: Found library at '{lib_path_pkg}' but failed to load: {e}", file=sys.stderr)
 
-def _pair_args(a, b, dtype):
-    a = _check_1d(a, dtype)
-    b = _check_1d(b, dtype)
-    if a.shape != b.shape:
-        raise ValueError("arrays must have same shape")
-    if a.size == 0:
-        raise ValueError("zero-length vectors are not allowed")
-    return a, b, a.size
+    print(
+        f"Info: Library not found at expected package location '{lib_path_pkg}'. Trying other methods...", file=sys.stderr)
 
-def _check_writeable(vec):
-    if not isinstance(vec, np.ndarray):
-        raise TypeError("input must be a NumPy array")
-    if vec.dtype != np.float32:
-        raise TypeError("array must be float32")
-    if vec.ndim != 1:
-        raise ValueError("array must be 1-dimensional")
-    if not vec.flags['C_CONTIGUOUS']:
-        vec = np.ascontiguousarray(vec, dtype=np.float32)
-    if not vec.flags['WRITEABLE']:
-        raise ValueError("array must be writeable")
-    return vec, vec.size
+    lib_path_env = os.environ.get("HSDLIB_PATH")
+    if lib_path_env:
+        if os.path.exists(lib_path_env):
+            try:
+                return ctypes.CDLL(
+                    lib_path_env) if platform.system() != "Windows" else ctypes.WinDLL(lib_path_env)
+            except OSError as e:
+                raise ImportError(
+                    f"Failed to load library from HSDLIB_PATH '{lib_path_env}': {e}") from e
+        else:
+            print(f"Warning: HSDLIB_PATH '{lib_path_env}' not found.", file=sys.stderr)
 
-# Wrappers
-def euclidean_f32(a, b):
-    a, b, n = _pair_args(a, b, np.float32)
-    out = c_float()
-    if _lib.hsd_euclidean_f32(a.ctypes.data_as(_float_p), b.ctypes.data_as(_float_p), n, byref(out)) != 0:
-        raise RuntimeError("hsd_euclidean_f32 failed")
-    return out.value
+    project_root = os.path.join(_here, "..", "..")
+    build_paths = [
+        os.path.join(project_root, "lib", lib_name), # Check ./lib/ first
+        os.path.join(project_root, "lib", "hsd.dll") if platform.system() == "Windows" else "",
+        os.path.join(project_root, "build", lib_name),
+        os.path.join(project_root, "cmake-build-debug", lib_name),
+        os.path.join(project_root, lib_name),
+        os.path.join(_here, "..", lib_name),
+        os.path.join(project_root, "build", "hsd.dll") if platform.system() == "Windows" else "",
+        os.path.join(project_root, "cmake-build-debug",
+                     "hsd.dll") if platform.system() == "Windows" else "",
+    ]
+    for path in filter(None, build_paths):
+        if os.path.exists(path):
+            print(f"Info: Found library via development path: '{path}'", file=sys.stderr)
+            try:
+                return ctypes.CDLL(path) if platform.system() != "Windows" else ctypes.WinDLL(path)
+            except OSError as e:
+                print(f"Warning: Found library at '{path}' but failed to load: {e}", file=sys.stderr)
 
-def cosine_f32(a, b):
-    a, b, n = _pair_args(a, b, np.float32)
-    out = c_float()
-    if _lib.hsd_cosine_f32(a.ctypes.data_as(_float_p), b.ctypes.data_as(_float_p), n, byref(out)) != 0:
-        raise RuntimeError("hsd_cosine_f32 failed")
-    return out.value
+    found_path = find_library("hsd")
+    if found_path:
+        print(f"Info: Found library via find_library: '{found_path}'", file=sys.stderr)
+        try:
+            return ctypes.CDLL(found_path) if platform.system() != "Windows" else ctypes.WinDLL(
+                found_path)
+        except OSError as e:
+            raise ImportError(
+                f"Found library '{found_path}' via find_library but failed to load: {e}") from e
 
-def manhattan_f32(a, b):
-    a, b, n = _pair_args(a, b, np.float32)
-    out = c_float()
-    if _lib.hsd_manhattan_f32(a.ctypes.data_as(_float_p), b.ctypes.data_as(_float_p), n, byref(out)) != 0:
-        raise RuntimeError("hsd_manhattan_f32 failed")
-    return out.value
+    print(f"Info: Trying system default search for '{lib_name}' or 'hsd.dll'...", file=sys.stderr)
+    try:
+        return ctypes.CDLL(lib_name) if platform.system() != "Windows" else ctypes.WinDLL("hsd.dll")
+    except OSError as e:
+        if platform.system() == "Windows":
+            try:
+                return ctypes.WinDLL(lib_name)
+            except OSError:
+                pass
 
-def dot_f32(a, b):
-    a, b, n = _pair_args(a, b, np.float32)
-    out = c_float()
-    if _lib.hsd_dot_f32(a.ctypes.data_as(_float_p), b.ctypes.data_as(_float_p), n, byref(out)) != 0:
-        raise RuntimeError("hsd_dot_f32 failed")
-    return out.value
+        raise OSError(
+            f"Could not load hsdlib ('{lib_name}' or 'hsd.dll'). Searched package dir, HSDLIB_PATH, common build directories, "
+            "and system paths. Please ensure the library is compiled and accessible."
+        ) from e
 
-def jaccard_u16(a, b):
-    a, b, n = _pair_args(a, b, np.uint16)
-    out = c_float()
-    if _lib.hsd_jaccard_u16(a.ctypes.data_as(_uint16_p), b.ctypes.data_as(_uint16_p), n, byref(out)) != 0:
-        raise RuntimeError("hsd_jaccard_u16 failed")
-    return out.value
 
-def hamming_i8(a, b):
-    a, b, n = _pair_args(a, b, np.int8)
-    out = c_float()
-    if _lib.hsd_hamming_i8(a.ctypes.data_as(_int8_p), b.ctypes.data_as(_int8_p), n, byref(out)) != 0:
-        raise RuntimeError("hsd_hamming_i8 failed")
-    return out.value
+_lib = _load_hsd_library()
 
-def normalize_l2_f32(vec):
-    vec, n = _check_writeable(vec)
-    if n == 0 or np.allclose(vec, 0):
-        raise ValueError("cannot normalize zero vector")
-    if _lib.hsd_normalize_l2_f32(vec.ctypes.data_as(_float_p), n) != 0:
-        raise RuntimeError("hsd_normalize_l2_f32 failed")
+c_float_p = POINTER(c_float)
+c_size_t = c_size_t
+c_uint16_p = POINTER(c_uint16)
+c_uint8_p = POINTER(c_uint8)
+c_uint64_p = POINTER(c_uint64)
+
+def _setup_signature(func_name, restype, argtypes):
+    try:
+        func = getattr(_lib, func_name)
+        func.argtypes = argtypes
+        func.restype = restype
+        return func
+    except AttributeError:
+        print(f"Warning: C function '{func_name}' not found in library.", file=sys.stderr)
+        return None
+
+hsd_dist_sqeuclidean_f32 = _setup_signature("hsd_dist_sqeuclidean_f32", c_int,
+                                            [c_float_p, c_float_p, c_size_t, c_float_p])
+hsd_sim_cosine_f32 = _setup_signature("hsd_sim_cosine_f32", c_int,
+                                      [c_float_p, c_float_p, c_size_t, c_float_p])
+hsd_dist_manhattan_f32 = _setup_signature("hsd_dist_manhattan_f32", c_int,
+                                          [c_float_p, c_float_p, c_size_t, c_float_p])
+hsd_sim_dot_f32 = _setup_signature("hsd_sim_dot_f32", c_int,
+                                   [c_float_p, c_float_p, c_size_t, c_float_p])
+hsd_sim_jaccard_u16 = _setup_signature("hsd_sim_jaccard_u16", c_int,
+                                       [c_uint16_p, c_uint16_p, c_size_t, c_float_p])
+hsd_dist_hamming_u8 = _setup_signature("hsd_dist_hamming_u8", c_int,
+                                       [c_uint8_p, c_uint8_p, c_size_t, c_uint64_p])
+hsd_get_backend = _setup_signature("hsd_get_backend", c_char_p, [])

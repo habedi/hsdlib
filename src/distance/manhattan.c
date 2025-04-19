@@ -26,14 +26,15 @@ static inline hsd_status_t manhattan_scalar_internal(const float *a, const float
     for (size_t i = 0; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("Scalar Input Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         sum_abs_diff += fabsf(a[i] - b[i]);
     }
 
     if (isnan(sum_abs_diff) || isinf(sum_abs_diff)) {
         hsd_log("Scalar Result Check: Final sum is NaN or Inf (value: %.8e)", sum_abs_diff);
-        return HSD_FAILURE;
+        *result = sum_abs_diff;  // Assign potentially invalid value
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = sum_abs_diff;
@@ -42,12 +43,12 @@ static inline hsd_status_t manhattan_scalar_internal(const float *a, const float
 }
 
 #if defined(__AVX__)
-
 static inline hsd_status_t manhattan_avx_internal(const float *a, const float *b, size_t n,
                                                   float *result) {
     hsd_log("Enter manhattan_avx_internal (n=%zu)", n);
     size_t i = 0;
     __m256 sum_acc = _mm256_setzero_ps();
+    // Mask to clear the sign bit for fabsf approximation
     const __m256 abs_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
 
     for (; i + 8 <= n; i += 8) {
@@ -63,14 +64,15 @@ static inline hsd_status_t manhattan_avx_internal(const float *a, const float *b
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("AVX Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         sum_abs_diff += fabsf(a[i] - b[i]);
     }
 
     if (isnan(sum_abs_diff) || isinf(sum_abs_diff)) {
         hsd_log("AVX Result Check: Final sum is NaN or Inf (value: %.8e)", sum_abs_diff);
-        return HSD_FAILURE;
+        *result = sum_abs_diff;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = sum_abs_diff;
@@ -84,7 +86,6 @@ static inline hsd_status_t manhattan_avx2_internal(const float *a, const float *
                                                    float *result) {
     hsd_log("Enter manhattan_avx2_internal (using AVX impl) (n=%zu)", n);
 #if defined(__AVX__)
-
     hsd_status_t status = manhattan_avx_internal(a, b, n, result);
     hsd_log("Exit manhattan_avx2_internal (status=%d)", status);
     return status;
@@ -103,13 +104,13 @@ static inline hsd_status_t manhattan_avx512_internal(const float *a, const float
     hsd_log("Enter manhattan_avx512_internal (n=%zu)", n);
     size_t i = 0;
     __m512 sum_acc = _mm512_setzero_ps();
+    // Mask to clear the sign bit for fabsf approximation
     const __m512 abs_mask = _mm512_castsi512_ps(_mm512_set1_epi32(0x7FFFFFFF));
 
     for (; i + 16 <= n; i += 16) {
         __m512 va = _mm512_loadu_ps(a + i);
         __m512 vb = _mm512_loadu_ps(b + i);
         __m512 diff = _mm512_sub_ps(va, vb);
-
         __m512 abs_diff = _mm512_and_ps(diff, abs_mask);
         sum_acc = _mm512_add_ps(sum_acc, abs_diff);
     }
@@ -119,14 +120,15 @@ static inline hsd_status_t manhattan_avx512_internal(const float *a, const float
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("AVX512 Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         sum_abs_diff += fabsf(a[i] - b[i]);
     }
 
     if (isnan(sum_abs_diff) || isinf(sum_abs_diff)) {
         hsd_log("AVX512 Result Check: Final sum is NaN or Inf (value: %.8e)", sum_abs_diff);
-        return HSD_FAILURE;
+        *result = sum_abs_diff;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = sum_abs_diff;
@@ -146,7 +148,7 @@ static inline hsd_status_t manhattan_neon_internal(const float *a, const float *
         float32x4_t va = vld1q_f32(a + i);
         float32x4_t vb = vld1q_f32(b + i);
         float32x4_t diff = vsubq_f32(va, vb);
-        float32x4_t abs_diff = vabsq_f32(diff);
+        float32x4_t abs_diff = vabsq_f32(diff);  // NEON has direct abs intrinsic
         sum_acc = vaddq_f32(sum_acc, abs_diff);
     }
 
@@ -161,14 +163,15 @@ static inline hsd_status_t manhattan_neon_internal(const float *a, const float *
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("NEON Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         sum_abs_diff += fabsf(a[i] - b[i]);
     }
 
     if (isnan(sum_abs_diff) || isinf(sum_abs_diff)) {
         hsd_log("NEON Result Check: Final sum is NaN or Inf (value: %.8e)", sum_abs_diff);
-        return HSD_FAILURE;
+        *result = sum_abs_diff;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = sum_abs_diff;
@@ -190,7 +193,7 @@ static inline hsd_status_t manhattan_sve_internal(const float *a, const float *b
         svfloat32_t va = svld1_f32(pg, a + i);
         svfloat32_t vb = svld1_f32(pg, b + i);
         svfloat32_t diff = svsub_f32_z(pg, va, vb);
-        svfloat32_t abs_diff = svabs_f32_z(pg, diff);
+        svfloat32_t abs_diff = svabs_f32_z(pg, diff);  // SVE has direct abs intrinsic
         sum_acc = svadd_f32_z(pg, sum_acc, abs_diff);
         i += svcntw();
     } while (svptest_any(svptrue_b32(), pg));
@@ -199,7 +202,8 @@ static inline hsd_status_t manhattan_sve_internal(const float *a, const float *b
 
     if (isnan(sum_abs_diff) || isinf(sum_abs_diff)) {
         hsd_log("SVE Result Check: Final sum is NaN or Inf (value: %.8e)", sum_abs_diff);
-        return HSD_FAILURE;
+        *result = sum_abs_diff;
+        return HSD_ERR_INVALID_INPUT;
     }
 
     *result = sum_abs_diff;
@@ -208,17 +212,22 @@ static inline hsd_status_t manhattan_sve_internal(const float *a, const float *b
 }
 #endif
 
-hsd_status_t hsd_manhattan_f32(const float *a, const float *b, size_t n, float *result) {
-    hsd_log("Enter hsd_manhattan_f32 (n=%zu)", n);
+hsd_status_t hsd_dist_manhattan_f32(const float *a, const float *b, size_t n, float *result) {
+    hsd_log("Enter hsd_dist_manhattan_f32 (n=%zu)", n);
 
-    if (a == NULL || b == NULL || result == NULL) {
-        hsd_log("Input pointers are NULL!");
+    if (result == NULL) {
+        hsd_log("Result pointer is NULL!");
         return HSD_ERR_NULL_PTR;
     }
     if (n == 0) {
         hsd_log("n is 0, Manhattan distance is 0.");
         *result = 0.0f;
         return HSD_SUCCESS;
+    }
+    if (a == NULL || b == NULL) {
+        hsd_log("Input array pointers are NULL for non-zero n!");
+        *result = NAN;
+        return HSD_ERR_NULL_PTR;
     }
 
     hsd_status_t status = HSD_FAILURE;
@@ -247,9 +256,9 @@ hsd_status_t hsd_manhattan_f32(const float *a, const float *b, size_t n, float *
     if (status != HSD_SUCCESS) {
         hsd_log("CPU backend failed (status=%d).", status);
     } else {
-        hsd_log("CPU backend succeeded.");
+        hsd_log("CPU backend succeeded. Manhattan distance: %f", *result);
     }
 
-    hsd_log("Exit hsd_manhattan_f32 (final status=%d)", status);
+    hsd_log("Exit hsd_dist_manhattan_f32 (final status=%d)", status);
     return status;
 }

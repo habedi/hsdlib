@@ -12,9 +12,9 @@ setup(
     include_package_data=True,
     package_data={
         "hsdpy": [
-            "libhsd.so",     # Linux
+            "libhsd.so",  # Linux
             "libhsd.dylib",  # macOS
-            "hsd.dll",       # Windows
+            "hsd.dll",  # Windows
         ]
     },
     install_requires=[

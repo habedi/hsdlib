@@ -17,57 +17,70 @@
 
 #include "hsdlib.h"
 
-static inline hsd_status_t calculate_cosine_distance_from_sums(float dot_product, float norm_a_sq,
-                                                               float norm_b_sq, float *result) {
+static inline hsd_status_t calculate_cosine_similarity_from_sums(float dot_product, float norm_a_sq,
+                                                                 float norm_b_sq, float *result) {
+    // Check for intermediate NaN/Inf first
     if (isnan(dot_product) || isnan(norm_a_sq) || isnan(norm_b_sq) || isinf(dot_product) ||
         isinf(norm_a_sq) || isinf(norm_b_sq)) {
         hsd_log("Sums Check: Intermediate sums are Inf/NaN (dot=%.8e, nA_sq=%.8e, nB_sq=%.8e)",
                 dot_product, norm_a_sq, norm_b_sq);
-        return HSD_FAILURE;
+        return HSD_ERR_INVALID_INPUT;
     }
 
-    int a_is_zero = !(norm_a_sq > 0.0f);
-    int b_is_zero = !(norm_b_sq > 0.0f);
+    // Determine if vectors are effectively zero based on squared norms
+    // Check against a value slightly larger than 0, like FLT_MIN,
+    // to account for underflow and potential FTZ behavior.
+    int a_is_zero_sq = (norm_a_sq < FLT_MIN);
+    int b_is_zero_sq = (norm_b_sq < FLT_MIN);
 
-    if (a_is_zero && b_is_zero) {
-        hsd_log("Norm Check: Both norms square <= 0.0f");
-        *result = 0.0f;
-    } else if (a_is_zero || b_is_zero) {
-        hsd_log("Norm Check: One norm square <= 0.0f");
-        *result = 1.0f;
+    float similarity;
+
+    if (a_is_zero_sq && b_is_zero_sq) {
+        hsd_log("Norm Check: Both squared norms < FLT_MIN. Setting similarity to 1.0");
+        similarity = 1.0f;  // Both vectors are effectively zero
+    } else if (a_is_zero_sq || b_is_zero_sq) {
+        hsd_log("Norm Check: One squared norm < FLT_MIN. Setting similarity to 0.0");
+        similarity = 0.0f;  // One vector is effectively zero, result is 0
     } else {
+        // Neither vector's squared norm is near zero. Proceed with sqrt and division.
         float norm_a = sqrtf(norm_a_sq);
         float norm_b = sqrtf(norm_b_sq);
 
-        if (isinf(norm_a) || isinf(norm_b) || isnan(norm_a) || isnan(norm_b) || !(norm_a > 0.0f) ||
-            !(norm_b > 0.0f)) {
-            hsd_log("Norm Check: sqrt resulted in Inf/NaN/Zero/Negative (norm_a=%.8e, norm_b=%.8e)",
-                    norm_a, norm_b);
-            return HSD_FAILURE;
+        // Check for NaN/Inf after sqrt (e.g., if norm_sq was negative somehow)
+        if (isnan(norm_a) || isnan(norm_b) || isinf(norm_a) || isinf(norm_b)) {
+            hsd_log("Norm Check: sqrt resulted in Inf/NaN (norm_a=%.8e, norm_b=%.8e)", norm_a,
+                    norm_b);
+            // Assign a value before returning error, maybe NaN? Or leave *result untouched?
+            // Assigning NaN might be clearer if the caller checks status first.
+            // *result = NAN; // Optional: Assign NaN on error
+            return HSD_ERR_INVALID_INPUT;
         }
 
         float denominator = norm_a * norm_b;
-        float similarity;
 
-        if (denominator <= FLT_MIN) {
-            hsd_log("Denominator Check: Denominator %.8e is <= FLT_MIN", denominator);
-            similarity = 0.0f;
+        // Check if denominator is extremely close to zero before dividing
+        if (denominator < FLT_MIN) {
+            hsd_log("Denominator Check: Denominator %.8e < FLT_MIN. Setting similarity to 0.0",
+                    denominator);
+            similarity = 0.0f;  // Treat as orthogonal to avoid division issues
         } else {
             similarity = dot_product / denominator;
-        }
 
-        if (similarity > 1.0f) {
-            similarity = 1.0f;
-        } else if (similarity < -1.0f) {
-            similarity = -1.0f;
+            // Clamp due to potential floating point inaccuracies near +/- 1.0
+            if (similarity > 1.0f) {
+                similarity = 1.0f;
+            } else if (similarity < -1.0f) {
+                similarity = -1.0f;
+            }
         }
-
-        *result = 1.0f - similarity;
     }
 
+    *result = similarity;
+
+    // Final check on the *assigned* result (redundant if checks above are thorough, but safe)
     if (isnan(*result) || isinf(*result)) {
-        hsd_log("Final Result Check: Result is NaN or Inf (value: %.8e)", *result);
-        return HSD_FAILURE;
+        hsd_log("Final Result Check: Similarity is NaN or Inf (value: %.8e)", *result);
+        return HSD_ERR_INVALID_INPUT;  // Or HSD_FAILURE
     }
 
     return HSD_SUCCESS;
@@ -83,7 +96,7 @@ static inline hsd_status_t cosine_scalar_internal(const float *a, const float *b
     for (size_t i = 0; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("Scalar Input Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
         norm_a_sq += a[i] * a[i];
@@ -91,14 +104,13 @@ static inline hsd_status_t cosine_scalar_internal(const float *a, const float *b
     }
 
     hsd_status_t status =
-        calculate_cosine_distance_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
+        calculate_cosine_similarity_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
 
     hsd_log("Exit cosine_scalar_internal (status=%d)", status);
     return status;
 }
 
 #if defined(__AVX__)
-
 static inline hsd_status_t cosine_avx_internal(const float *a, const float *b, size_t n,
                                                float *result) {
     hsd_log("Enter cosine_avx_internal (n=%zu)", n);
@@ -110,7 +122,6 @@ static inline hsd_status_t cosine_avx_internal(const float *a, const float *b, s
     for (; i + 8 <= n; i += 8) {
         __m256 va = _mm256_loadu_ps(a + i);
         __m256 vb = _mm256_loadu_ps(b + i);
-
 #if defined(__FMA__)
         dot_acc = _mm256_fmadd_ps(va, vb, dot_acc);
         norm_a_acc = _mm256_fmadd_ps(va, va, norm_a_acc);
@@ -129,7 +140,7 @@ static inline hsd_status_t cosine_avx_internal(const float *a, const float *b, s
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("AVX Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
         norm_a_sq += a[i] * a[i];
@@ -137,7 +148,7 @@ static inline hsd_status_t cosine_avx_internal(const float *a, const float *b, s
     }
 
     hsd_status_t status =
-        calculate_cosine_distance_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
+        calculate_cosine_similarity_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
 
     hsd_log("Exit cosine_avx_internal (status=%d)", status);
     return status;
@@ -149,7 +160,6 @@ static inline hsd_status_t cosine_avx2_internal(const float *a, const float *b, 
                                                 float *result) {
     hsd_log("Enter cosine_avx2_internal (using AVX impl) (n=%zu)", n);
 #if defined(__AVX__)
-
     hsd_status_t status = cosine_avx_internal(a, b, n, result);
     hsd_log("Exit cosine_avx2_internal (status=%d)", status);
     return status;
@@ -186,7 +196,7 @@ static inline hsd_status_t cosine_avx512_internal(const float *a, const float *b
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("AVX512 Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
         norm_a_sq += a[i] * a[i];
@@ -194,7 +204,7 @@ static inline hsd_status_t cosine_avx512_internal(const float *a, const float *b
     }
 
     hsd_status_t status =
-        calculate_cosine_distance_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
+        calculate_cosine_similarity_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
 
     hsd_log("Exit cosine_avx512_internal (status=%d)", status);
     return status;
@@ -239,7 +249,7 @@ static inline hsd_status_t cosine_neon_internal(const float *a, const float *b, 
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             hsd_log("NEON Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_FAILURE;
+            return HSD_ERR_INVALID_INPUT;
         }
         dot_product += a[i] * b[i];
         norm_a_sq += a[i] * a[i];
@@ -247,7 +257,7 @@ static inline hsd_status_t cosine_neon_internal(const float *a, const float *b, 
     }
 
     hsd_status_t status =
-        calculate_cosine_distance_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
+        calculate_cosine_similarity_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
 
     hsd_log("Exit cosine_neon_internal (status=%d)", status);
     return status;
@@ -267,48 +277,42 @@ static inline hsd_status_t cosine_sve_internal(const float *a, const float *b, s
 
     do {
         pg = svwhilelt_b32((uint64_t)i, (uint64_t)n);
-
         svfloat32_t va = svld1_f32(pg, a + i);
         svfloat32_t vb = svld1_f32(pg, b + i);
-
         dot_acc = svmla_f32_z(pg, dot_acc, va, vb);
         norm_a_acc = svmla_f32_z(pg, norm_a_acc, va, va);
         norm_b_acc = svmla_f32_z(pg, norm_b_acc, vb, vb);
-
         i += svcntw();
-
     } while (svptest_any(svptrue_b32(), pg));
 
     float dot_product = svaddv_f32(svptrue_b32(), dot_acc);
     float norm_a_sq = svaddv_f32(svptrue_b32(), norm_a_acc);
     float norm_b_sq = svaddv_f32(svptrue_b32(), norm_b_acc);
 
-    if (isnan(dot_product) || isnan(norm_a_sq) || isnan(norm_b_sq) || isinf(dot_product) ||
-        isinf(norm_a_sq) || isinf(norm_b_sq)) {
-        hsd_log("SVE Result Check: Reduced sums are NaN/Inf (dot=%.8e, nA_sq=%.8e, nB_sq=%.8e)",
-                dot_product, norm_a_sq, norm_b_sq);
-        return HSD_FAILURE;
-    }
-
     hsd_status_t status =
-        calculate_cosine_distance_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
+        calculate_cosine_similarity_from_sums(dot_product, norm_a_sq, norm_b_sq, result);
 
     hsd_log("Exit cosine_sve_internal (status=%d)", status);
     return status;
 }
 #endif
 
-hsd_status_t hsd_cosine_f32(const float *a, const float *b, size_t n, float *result) {
-    hsd_log("Enter hsd_cosine_f32 (n=%zu)", n);
+hsd_status_t hsd_sim_cosine_f32(const float *a, const float *b, size_t n, float *result) {
+    hsd_log("Enter hsd_sim_cosine_f32 (n=%zu)", n);
 
-    if (a == NULL || b == NULL || result == NULL) {
-        hsd_log("Input pointers are NULL!");
+    if (result == NULL) {
+        hsd_log("Result pointer is NULL!");
         return HSD_ERR_NULL_PTR;
     }
     if (n == 0) {
-        hsd_log("n is 0, distance is 0.");
-        *result = 0.0f;
+        hsd_log("n is 0, similarity defaults to 1.0.");
+        *result = 1.0f;
         return HSD_SUCCESS;
+    }
+    if (a == NULL || b == NULL) {
+        hsd_log("Input array pointers are NULL for non-zero n!");
+        *result = NAN;
+        return HSD_ERR_NULL_PTR;
     }
 
     hsd_status_t status = HSD_FAILURE;
@@ -337,9 +341,9 @@ hsd_status_t hsd_cosine_f32(const float *a, const float *b, size_t n, float *res
     if (status != HSD_SUCCESS) {
         hsd_log("CPU backend failed (status=%d).", status);
     } else {
-        hsd_log("CPU backend succeeded.");
+        hsd_log("CPU backend succeeded. Cosine similarity: %f", *result);
     }
 
-    hsd_log("Exit hsd_cosine_f32 (final status=%d)", status);
+    hsd_log("Exit hsd_sim_cosine_f32 (final status=%d)", status);
     return status;
 }

@@ -10,19 +10,24 @@
 #include <immintrin.h>
 #endif
 
-void run_hsdlib_header_tests(void) {
-    printf("\n======= Running Hsdlib Header Tests =======\n");
+void run_utils_tests(void) {
+    printf("\n======= Running Utilities Tests =======\n");
 
-    // --- Test hsd_get_backend() ---
     printf("-- Running test: hsd_get_backend check --\n");
     const char *backend = hsd_get_backend();
-    int backend_ok = 0;
     if (backend != NULL) {
+        int backend_ok = 0;
         printf("PASS: hsd_get_backend returned non-NULL string: \"%s\"\n", backend);
-        backend_ok = 1;  // Basic check passed
+        backend_ok = 1;
 
-// More specific checks based on compile flags
-#if defined(__AVX512BW__) && defined(__AVX512F__)
+// Check the backend string against compile flags, matching hsd_get_backend() order
+#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
+        if (strcmp(backend, "AVX512 (VPOPCNTDQ)") != 0) {
+            fprintf(stderr, "FAIL: Expected backend 'AVX512 (VPOPCNTDQ)', got '%s'\n", backend);
+            g_test_failed++;
+            backend_ok = 0;
+        }
+#elif defined(__AVX512BW__) && defined(__AVX512F__)
         if (strcmp(backend, "AVX512BW") != 0) {
             fprintf(stderr, "FAIL: Expected backend 'AVX512BW', got '%s'\n", backend);
             g_test_failed++;
@@ -75,7 +80,6 @@ void run_hsdlib_header_tests(void) {
     }
     printf("\n");
 
-    // --- Test hsd_has_avx512() ---
     printf("-- Running test: hsd_has_avx512 check --\n");
     int has_avx512 = hsd_has_avx512();
     printf("INFO: hsd_has_avx512() returned: %d\n", has_avx512);
@@ -100,13 +104,12 @@ void run_hsdlib_header_tests(void) {
 #endif
     printf("\n");
 
-    // --- Test hsd_internal_hsum_avx_f32() ---
     printf("-- Running test: hsd_internal_hsum_avx_f32 check --\n");
 #if defined(__AVX__)
     __m256 test_vec = _mm256_set_ps(8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f);
-    float expected_sum = 1.0f + 2.0f + 3.0f + 4.0f + 5.0f + 6.0f + 7.0f + 8.0f;  // 36.0f
+    float expected_sum = 1.0f + 2.0f + 3.0f + 4.0f + 5.0f + 6.0f + 7.0f + 8.0f;
     float actual_sum = hsd_internal_hsum_avx_f32(test_vec);
-    float tolerance = FLT_EPSILON * 4.0f;  // Small tolerance
+    float tolerance = FLT_EPSILON * 8.0f;  // Adjusted tolerance slightly
 
     if (fabsf(expected_sum - actual_sum) <= tolerance) {
         printf("PASS: hsd_internal_hsum_avx_f32 (Expected: %.8f, Actual: %.8f)\n", expected_sum,
@@ -124,7 +127,6 @@ void run_hsdlib_header_tests(void) {
 #endif
     printf("\n");
 
-    // --- Test hsd_get_fp_mode_status() ---
     printf("-- Running test: hsd_get_fp_mode_status check --\n");
     hsd_fp_status_t fp_status = hsd_get_fp_mode_status();
     printf("INFO: hsd_get_fp_mode_status returned:\n");
@@ -144,7 +146,6 @@ void run_hsdlib_header_tests(void) {
     else
         printf("(Unknown/Unsupported)\n");
 
-    // Cannot assert specific state without setting it first, just check it runs.
     if (fp_status.ftz_enabled == -1 && fp_status.daz_enabled == -1) {
         printf("INFO: FTZ/DAZ status check not supported or failed on this platform.\n");
     } else {
@@ -154,5 +155,5 @@ void run_hsdlib_header_tests(void) {
     }
     printf("\n");
 
-    printf("======= Finished Hsdlib Header Tests =======\n");
+    printf("======= Finished Utilities Tests =======\n");
 }

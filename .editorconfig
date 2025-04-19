@@ -16,10 +16,18 @@ trim_trailing_whitespace = true # Remove trailing whitespace
 [*.{c,h}]
 max_line_length = 100
 
+# Python files
+[*.py]
+max_line_length = 100
+
+# Zig files
+[*.zig]
+max_line_length = 100
+
 # Markdown files
 [*.md]
 max_line_length = 120
-trim_trailing_whitespace = false # Don't remove trailing whitespace in Markdown files
+trim_trailing_whitespace = false
 
 # Bash scripts
 [*.sh]

@@ -1,39 +1,40 @@
-[tool.poetry]
+[project]
 name = "hsdpy"
 version = "0.1.0"
-description = "Python bindings for the Hsdlib C library"
-authors = ["Hassan Abedi <hassan.abedi.t+hsdlib@gmail.com>"]
+description = "Python bindings for the Hsdlib library"
+authors = [
+    { name = "Hassan Abedi", email = "hassan.abedi.t+hsdlib@gmail.com" },
+]
 readme = "README.md"
-license = "MIT"
-repository = "https://github.com/habedi/hsdlib"
+license = { text = "MIT" }
+requires-python = ">=3.10"
 
-packages = [
-    { include = "hsdpy", from = "python" },
+dependencies = [
+    "numpy>=2.2.0",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-numpy = "^2.2.0"
+[project.urls]
+Repository = "https://github.com/habedi/hsdlib"
 
-[tool.poetry.group.dev.dependencies] # Development dependencies (need `--with=dev` flag)
-pytest = "^8.0.1"
-pytest-cov = "^6.0.0"
-pytest-mock = "^3.14.0"
-pytest-benchmark = "^5.1.0"
-mypy = "^1.11.1"
-ruff = "^0.9.3"
-scipy = "^1.15.2"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.1",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "pytest-benchmark>=5.1.0",
+    "mypy>=1.11.1",
+    "ruff>=0.9.3",
+    "scipy>=1.15.2",
+    "build>=1.2.2.post1",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
-# Include the shared library files in the package
-[[tool.poetry.include]]
-path = "python/hsdpy/libhsd.so"
+[tool.setuptools]
+packages = ["hsdpy"]
+package-dir = { "" = "python" }
 
-[[tool.poetry.include]]
-path = "python/hsdpy/libhsd.dylib"
-
-[[tool.poetry.include]]
-path = "python/hsdpy/hsd.dll"
+[tool.setuptools.package-data]
+hsdpy = ["*.so", "*.dylib", "*.dll"]
