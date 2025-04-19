@@ -32,6 +32,57 @@ CFLAGS += -g -O0
 CFLAGS += -DHSD_DEBUG
 endif
 ####################################################################################################
+## Platform Detection
+####################################################################################################
+OS := $(shell uname -s)
+
+# Platform specific library/exe names
+ifeq ($(OS),Linux)
+    SHARED_LIB_EXT := so
+    SHARED_LIB_PREFIX := lib
+    STATIC_LIB_EXT := a
+    EXE_EXT :=
+endif
+ifeq ($(OS),Darwin)
+    SHARED_LIB_EXT := dylib
+    SHARED_LIB_PREFIX := lib
+    STATIC_LIB_EXT := a
+    EXE_EXT :=
+endif
+# Add MinGW/Windows detection if needed, e.g., based on $(OS) == Windows_NT
+# Defaulting to POSIX-like names otherwise
+SHARED_LIB_FILENAME ?= $(SHARED_LIB_PREFIX)hsd.$(SHARED_LIB_EXT)
+STATIC_LIB_FILENAME ?= $(SHARED_LIB_PREFIX)hsd.$(STATIC_LIB_EXT)
+EXE_FILENAME ?= test_runner$(EXE_EXT)
+
+# Update target variables to use platform-aware names
+SHARED_LIB := $(LIB_DIR)/$(SHARED_LIB_FILENAME)
+STATIC_LIB := $(LIB_DIR)/$(STATIC_LIB_FILENAME)
+TEST_RUNNER := $(BIN_DIR)/$(EXE_FILENAME)
+TEST_RUNNER_VALGRIND := $(BIN_DIR)/test_runner_valgrind$(EXE_EXT) # Assuming valgrind builds native exe
+
+####################################################################################################
+## Zig Configuration
+####################################################################################################
+ZIG := zig
+ZIG_BUILD_FLAGS :=
+ifeq ($(BUILD_TYPE),release)
+ZIG_BUILD_FLAGS += -Doptimize=Release
+else
+ZIG_BUILD_FLAGS += -Doptimize=Debug
+endif
+# Use Zig's native detection, analogous to -march=native
+# Zig defaults to native CPU/Arch if target isn't specified for cross-compilation
+# We can add -Dcpu=native explicitly if desired for clarity
+ZIG_BUILD_FLAGS += -Dcpu=native
+
+# Base Zig build command
+ZIG_CMD := $(ZIG) build $(ZIG_BUILD_FLAGS)
+
+# Zig output directories (relative to project root)
+ZIG_OUT_BIN := zig-out/bin
+ZIG_OUT_LIB := zig-out/lib
+####################################################################################################
 ## Compiler Flags
 ####################################################################################################
 CFLAGS_BASE := -Wall -Wextra -pedantic -std=c11 -fPIC -Iinclude -march=native
@@ -163,9 +214,14 @@ uninstall: ## Uninstall headers and libs (from /usr/local)
 ####################################################################################################
 .PHONY: install-deps
 install-deps: ## Install development dependencies (for Debian-based systems)
-	@echo "Installing development dependencies..."
+	@echo "Installing system dependencies..."
 	sudo apt-get update && sudo apt-get install -y \
-	   gcc clang llvm gdb clang-format clang-tools cppcheck graphviz
+	   gcc clang llvm gdb clang-format clang-tools cppcheck graphviz \
+	   doxygen python3-pip snapd
+	@echo "Installing Python dependencies..."
+	pip3 install -U uv
+	@echo "Installing Zig..."
+	snap install zig --classic --beta
 
 .PHONY: format
 format: ## Format code with clang-format (requires a .clang-format file)
@@ -187,7 +243,7 @@ doc: ## Generate documentation using Doxygen
 	doxygen Doxyfile
 
 .PHONY: clean
-clean: python-clean ## Remove all build artifacts, including coverage reports and test runner
+clean: python-clean zig-clean ## Remove all build artifacts, including coverage reports and test runner
 	@echo "Cleaning up C build artifacts..."
 	rm -rf $(BIN_DIR) $(TARGET_DIR) $(LIB_DIR) $(COV_DIR)
 	@echo "Searching for and removing intermediate/output files (excluding $(CLEAN_EXCLUDE_DIRS))..."
@@ -209,11 +265,10 @@ PYTHON_BUILD_DIR := build
 PYTHON_EGG_INFO := $(shell find . -maxdepth 2 -type d -name '*.egg-info') UNKNOWN.egg-info
 
 .PHONY: python-wheel
-python-wheel: shared ## Build shared library, copy it, then build wheel via python -m build
+# CHANGE 'shared' to 'zig-shared' here if you want Zig to build the library
+python-wheel: zig-shared ## Build shared library via Zig, copy it, then build wheel
 	@echo "Copying shared library into Python package..."
-	# This might need adjustment based on platform (dylib/dll)
-	# Consider adding platform detection here or handling it in the python loading code robustly
-	cp $(SHARED_LIB) python/hsdpy/
+	# ... (rest of copy command) ...
 	@echo "Building wheel using python -m build..."
 	python -m build --wheel --outdir $(PYTHON_DIST_DIR)
 
@@ -228,10 +283,11 @@ python-install-wheel: python-wheel ## Build the wheel and install it using uv pi
 	# Use uv pip install
 	uv pip install --force-reinstall --no-deps "$(WHEEL_FILE)"
 
+# Make sure python-test also uses zig-shared if desired
 .PHONY: python-test
-python-test: shared ## Run Python tests using uv run
+# CHANGE 'shared' to 'zig-shared' here if you want Zig to build the library
+python-test: zig-shared ## Build shared library via Zig, then run Python tests
 	@echo "Running Python tests using uv..."
-	# Use uv run pytest
 	uv run pytest python/tests --tb=short --disable-warnings --cov=python/hsdpy --cov-branch --cov-report=xml
 
 .PHONY: python-clean
@@ -242,6 +298,44 @@ python-clean: ## Remove Python build artifacts and copied libs
 	rm -f python/hsdpy/libhsd.so python/hsdpy/libhsd.dylib python/hsdpy/hsd.dll
 	@echo "Clearing Python bytecode caches..."
 	find python -type d -name '__pycache__' -exec rm -rf {} +
+
+####################################################################################################
+## Zig Build Targets
+####################################################################################################
+.PHONY: zig-shared
+zig-shared: | $(LIB_DIR) ## Build shared library using Zig build system
+	@echo "Building shared library with Zig $(ZIG_BUILD_FLAGS)..."
+	$(ZIG_CMD)
+	@echo "Copying Zig output $(ZIG_OUT_LIB)/$(SHARED_LIB_FILENAME) to $(SHARED_LIB)..."
+	mkdir -p $(LIB_DIR)
+	cp "$(ZIG_OUT_LIB)/$(SHARED_LIB_FILENAME)" "$(SHARED_LIB)"
+
+.PHONY: zig-static
+zig-static: | $(LIB_DIR) ## Build static library using Zig build system
+	@echo "Building static library with Zig $(ZIG_BUILD_FLAGS)..."
+	$(ZIG_CMD)
+	@echo "Copying Zig output $(ZIG_OUT_LIB)/$(STATIC_LIB_FILENAME) to $(STATIC_LIB)..."
+	mkdir -p $(LIB_DIR)
+	# Assuming Zig produces .a for static lib even on Windows w/ mingw target
+	# Adjust cp source if Zig produces .lib on windows targets
+	cp "$(ZIG_OUT_LIB)/$(STATIC_LIB_FILENAME)" "$(STATIC_LIB)"
+
+.PHONY: zig-lib
+zig-lib: zig-shared zig-static ## Build both libraries using Zig
+
+.PHONY: zig-test-c
+zig-test-c: | $(BIN_DIR) ## Compile and run C tests using Zig build system
+	@echo "Building C tests with Zig $(ZIG_BUILD_FLAGS)..."
+	$(ZIG_CMD)
+	@echo "Copying test runner to $(TEST_RUNNER)..."
+	cp "$(ZIG_OUT_BIN)/test_runner" "$(TEST_RUNNER)"
+	@echo "Running tests..."
+	./$(TEST_RUNNER)
+
+.PHONY: zig-clean
+zig-clean: ## Remove Zig build artifacts
+	@echo "Cleaning Zig build artifacts..."
+	rm -rf zig-cache .zig-cache zig-out
 
 # Include dependency files
 -include $(DEP_FILES)

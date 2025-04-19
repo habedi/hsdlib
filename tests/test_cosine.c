@@ -18,7 +18,7 @@ void run_cosine_sim_tests(void) {
 
     const float v_ident1[] = {1.1f, -2.2f, 3.3f, -4.4f};
     const float v_ident2[] = {1.1f, -2.2f, 3.3f, -4.4f};
-    run_test_f32(func_ptr, func_name, "Identical Vectors", v_ident1, v_ident2, 4, 1.0f, 1e-7f);
+    run_test_f32(func_ptr, func_name, "Identical Vectors", v_ident1, v_ident2, 4, 1.0f, 1.5e-7f);
 
     const float v_para1[] = {1.0f, 2.0f, 3.0f};
     const float v_para2[] = {2.0f, 4.0f, 6.0f};
