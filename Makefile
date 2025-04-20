@@ -318,7 +318,7 @@ python-build: ## Build Python wheel package for distribution
 	@echo "Building Python wheel..."
 	@if [ ! -f "$(SHARED_LIB)" ]; then \
 		echo "ERROR: Shared library $(SHARED_LIB) not found!"; \
-		echo "Please run 'HSD_TARGET=AUTO make clean shared' or 'make clean zig-shared' first to build the library."; \
+		echo "Please run 'BUILD_TYPE=release HSD_TARGET=AUTO make clean shared' or 'make clean zig-shared' first to build the library."; \
 		exit 1; \
 	fi
 	@echo "Using shared lib: $(SHARED_LIB)"
