@@ -218,30 +218,80 @@ hsd_status_t hsd_sim_dot_f32(const float *a, const float *b, size_t n, float *re
 
     hsd_status_t status = HSD_FAILURE;
 
-    hsd_log("Using CPU backend...");
+#if defined(HSD_TARGET_AVX512)
+    hsd_log("CPU Path: Forced AVX512F");
 #if defined(__AVX512F__)
-    hsd_log("CPU Path: AVX512F");
     status = dot_avx512_internal(a, b, n, result);
-#elif defined(__AVX2__)
-    hsd_log("CPU Path: AVX2");
+#else
+#error "HSD_TARGET_AVX512 requires compiler support for AVX512F (e.g., -mavx512f)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX2)
+    hsd_log("CPU Path: Forced AVX2");
+#if defined(__AVX2__)
     status = dot_avx2_internal(a, b, n, result);
-#elif defined(__AVX__)
-    hsd_log("CPU Path: AVX");
+#else
+#error "HSD_TARGET_AVX2 requires compiler support for AVX2 (e.g., -mavx2)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX)
+    hsd_log("CPU Path: Forced AVX");
+#if defined(__AVX__)
     status = dot_avx_internal(a, b, n, result);
-#elif defined(__ARM_FEATURE_SVE)
-    hsd_log("CPU Path: SVE");
+#else
+#error "HSD_TARGET_AVX requires compiler support for AVX (e.g., -mavx)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SVE)
+    hsd_log("CPU Path: Forced SVE");
+#if defined(__ARM_FEATURE_SVE)
     status = dot_sve_internal(a, b, n, result);
-#elif defined(__ARM_NEON)
-    hsd_log("CPU Path: NEON");
+#else
+#error "HSD_TARGET_SVE requires compiler support for SVE (e.g., -march=armv8.2-a+sve)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_NEON)
+    hsd_log("CPU Path: Forced NEON");
+#if defined(__ARM_NEON)
     status = dot_neon_internal(a, b, n, result);
 #else
-    hsd_log("CPU Path: Scalar");
+#error "HSD_TARGET_NEON requires compiler support for NEON (e.g., -mfpu=neon)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SCALAR)
+    hsd_log("CPU Path: Forced Scalar");
+    status = dot_scalar_internal(a, b, n, result);
+#else
+    hsd_log("Using CPU backend (auto-detected)...");
+#if defined(__AVX512F__)
+    hsd_log("CPU Path: Auto AVX512F");
+    status = dot_avx512_internal(a, b, n, result);
+#elif defined(__AVX2__)
+    hsd_log("CPU Path: Auto AVX2");
+    status = dot_avx2_internal(a, b, n, result);
+#elif defined(__AVX__)
+    hsd_log("CPU Path: Auto AVX");
+    status = dot_avx_internal(a, b, n, result);
+#elif defined(__ARM_FEATURE_SVE)
+    hsd_log("CPU Path: Auto SVE");
+    status = dot_sve_internal(a, b, n, result);
+#elif defined(__ARM_NEON)
+    hsd_log("CPU Path: Auto NEON");
+    status = dot_neon_internal(a, b, n, result);
+#else
+    hsd_log("CPU Path: Auto Scalar");
     status = dot_scalar_internal(a, b, n, result);
 #endif
+#endif
 
-    if (status != HSD_SUCCESS) {
+    if (status != HSD_SUCCESS && status != HSD_ERR_UNSUPPORTED) {
         hsd_log("CPU backend failed (status=%d).", status);
-    } else {
+    } else if (status == HSD_SUCCESS) {
         hsd_log("CPU backend succeeded. Dot product: %f", *result);
     }
 

@@ -16,62 +16,59 @@ void run_utils_tests(void) {
     printf("-- Running test: hsd_get_backend check --\n");
     const char *backend = hsd_get_backend();
     if (backend != NULL) {
-        int backend_ok = 0;
-        printf("PASS: hsd_get_backend returned non-NULL string: \"%s\"\n", backend);
-        backend_ok = 1;
+        printf("INFO: hsd_get_backend returned string: \"%s\"\n", backend);
 
-// Check the backend string against compile flags, matching hsd_get_backend() order
-#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-        if (strcmp(backend, "AVX512 (VPOPCNTDQ)") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'AVX512 (VPOPCNTDQ)', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
-#elif defined(__AVX512BW__) && defined(__AVX512F__)
-        if (strcmp(backend, "AVX512BW") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'AVX512BW', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
-#elif defined(__AVX512F__)
-        if (strcmp(backend, "AVX512F") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'AVX512F', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
-#elif defined(__AVX2__)
-        if (strcmp(backend, "AVX2") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'AVX2', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
-#elif defined(__AVX__)
-        if (strcmp(backend, "AVX") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'AVX', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
-#elif defined(__ARM_FEATURE_SVE)
-        if (strcmp(backend, "SVE") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'SVE', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
-#elif defined(__ARM_NEON)
-        if (strcmp(backend, "NEON") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'NEON', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
+        // Determine the expected backend string based on HSD_TARGET_* first
+        const char *expected_backend = NULL;
+#if defined(HSD_TARGET_AVX512VPOPCNTDQ)
+        expected_backend = "Forced AVX512 (VPOPCNTDQ)";
+#elif defined(HSD_TARGET_AVX512BW)
+        expected_backend = "Forced AVX512BW";
+#elif defined(HSD_TARGET_AVX512)  // Corresponds to HSD_TARGET_AVX512F
+        expected_backend = "Forced AVX512F";
+#elif defined(HSD_TARGET_AVX2)
+        expected_backend = "Forced AVX2";
+#elif defined(HSD_TARGET_AVX)
+        expected_backend = "Forced AVX";
+#elif defined(HSD_TARGET_SVE)
+        expected_backend = "Forced SVE";
+#elif defined(HSD_TARGET_NEON)
+        expected_backend = "Forced NEON";
+#elif defined(HSD_TARGET_SCALAR)
+        expected_backend = "Forced Scalar";
 #else
-        if (strcmp(backend, "Scalar") != 0) {
-            fprintf(stderr, "FAIL: Expected backend 'Scalar', got '%s'\n", backend);
-            g_test_failed++;
-            backend_ok = 0;
-        }
+// No HSD_TARGET_* defined, check auto-detection based on compiler flags
+#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
+        expected_backend = "Auto AVX512 (VPOPCNTDQ)";
+#elif defined(__AVX512BW__) && defined(__AVX512F__)
+        expected_backend = "Auto AVX512BW";
+#elif defined(__AVX512F__)
+        expected_backend = "Auto AVX512F";
+#elif defined(__AVX2__)
+        expected_backend = "Auto AVX2";
+#elif defined(__AVX__)
+        expected_backend = "Auto AVX";
+#elif defined(__ARM_FEATURE_SVE)
+        expected_backend = "Auto SVE";
+#elif defined(__ARM_NEON)
+        expected_backend = "Auto NEON";
+#else
+        expected_backend = "Auto Scalar";
 #endif
-        if (backend_ok) {
-            printf("PASS: hsd_get_backend returned expected string for current build flags.\n");
+#endif  // HSD_TARGET_* checks
+
+        // Now compare the actual backend with the expected one
+        if (expected_backend != NULL && strcmp(backend, expected_backend) == 0) {
+            printf(
+                "PASS: hsd_get_backend returned expected string \"%s\" for current build "
+                "configuration.\n",
+                expected_backend);
+        } else {
+            fprintf(stderr, "FAIL: hsd_get_backend check failed.\n");
+            fprintf(stderr, "      Expected: \"%s\"\n",
+                    expected_backend ? expected_backend : "(Could not determine expected)");
+            fprintf(stderr, "      Actual:   \"%s\"\n", backend);
+            g_test_failed++;
         }
 
     } else {
@@ -109,7 +106,7 @@ void run_utils_tests(void) {
     __m256 test_vec = _mm256_set_ps(8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f);
     float expected_sum = 1.0f + 2.0f + 3.0f + 4.0f + 5.0f + 6.0f + 7.0f + 8.0f;
     float actual_sum = hsd_internal_hsum_avx_f32(test_vec);
-    float tolerance = FLT_EPSILON * 8.0f;  // Adjusted tolerance slightly
+    float tolerance = FLT_EPSILON * 8.0f;
 
     if (fabsf(expected_sum - actual_sum) <= tolerance) {
         printf("PASS: hsd_internal_hsum_avx_f32 (Expected: %.8f, Actual: %.8f)\n", expected_sum,

@@ -29,7 +29,7 @@ static inline hsd_status_t calculate_jaccard_similarity_from_sums_u64(uint64_t d
                                                                       float *result) {
     if (nAsq == 0 && nBsq == 0) {
         hsd_log("Input Check: Both vectors are zero. Similarity is 1.0");
-        *result = 1.0f;  // Define similarity for two zero vectors as 1.0
+        *result = 1.0f;
         return HSD_SUCCESS;
     }
 
@@ -39,16 +39,13 @@ static inline hsd_status_t calculate_jaccard_similarity_from_sums_u64(uint64_t d
     double denominator = d_nAsq + d_nBsq - d_dot;
     double similarity;
 
-    // Denominator is ||A||^2 + ||B||^2 - A.B = ||A union B||_binary_equivalent
-    // If denominator is near zero, it implies A and B are identical or zero.
     if (denominator < 1e-9) {
         hsd_log("Denominator Check: Denominator %.8e is near zero. Similarity is 1.0", denominator);
-        similarity = 1.0;  // Vectors are effectively identical
+        similarity = 1.0;
     } else {
         similarity = d_dot / denominator;
     }
 
-    // Clamp similarity [0.0, 1.0] - Jaccard for non-negative vectors is always non-negative.
     if (similarity > 1.0) similarity = 1.0;
     if (similarity < 0.0) similarity = 0.0;
 
@@ -56,7 +53,7 @@ static inline hsd_status_t calculate_jaccard_similarity_from_sums_u64(uint64_t d
 
     if (isnan(*result) || isinf(*result)) {
         hsd_log("Final Result Check: Similarity is NaN or Inf (value: %.8e)", *result);
-        return HSD_ERR_INVALID_INPUT;  // Or HSD_FAILURE
+        return HSD_ERR_INVALID_INPUT;
     }
     return HSD_SUCCESS;
 }
@@ -175,7 +172,6 @@ static inline hsd_status_t jaccard_avx512_internal(const uint16_t *a, const uint
         __m512i va16 = _mm512_loadu_si512((const __m512i *)(a + i));
         __m512i vb16 = _mm512_loadu_si512((const __m512i *)(b + i));
 
-        // Process lower 16 uint16_t -> lower 8 uint64_t sums
         __m256i va16_lo = _mm512_extracti64x4_epi64(va16, 0);
         __m256i vb16_lo = _mm512_extracti64x4_epi64(vb16, 0);
         __m512i va32_lo = _mm512_cvtepu16_epi32(va16_lo);
@@ -184,7 +180,6 @@ static inline hsd_status_t jaccard_avx512_internal(const uint16_t *a, const uint
         __m512i nAsq32_lo = _mm512_mullo_epi32(va32_lo, va32_lo);
         __m512i nBsq32_lo = _mm512_mullo_epi32(vb32_lo, vb32_lo);
 
-        // Process upper 16 uint16_t -> upper 8 uint64_t sums
         __m256i va16_hi = _mm512_extracti64x4_epi64(va16, 1);
         __m256i vb16_hi = _mm512_extracti64x4_epi64(vb16, 1);
         __m512i va32_hi = _mm512_cvtepu16_epi32(va16_hi);
@@ -193,7 +188,6 @@ static inline hsd_status_t jaccard_avx512_internal(const uint16_t *a, const uint
         __m512i nAsq32_hi = _mm512_mullo_epi32(va32_hi, va32_hi);
         __m512i nBsq32_hi = _mm512_mullo_epi32(vb32_hi, vb32_hi);
 
-        // Widen epi32 products to epi64 and accumulate
         dot_acc = _mm512_add_epi64(dot_acc,
                                    _mm512_cvtepu32_epi64(_mm512_extracti32x8_epi32(dot32_lo, 0)));
         dot_acc = _mm512_add_epi64(dot_acc,
@@ -222,7 +216,6 @@ static inline hsd_status_t jaccard_avx512_internal(const uint16_t *a, const uint
                                     _mm512_cvtepu32_epi64(_mm512_extracti32x8_epi32(nBsq32_hi, 1)));
     }
 
-    // Horizontal sum of the epi64 accumulators
     uint64_t dot_hsum[8];
     uint64_t nAsq_hsum[8];
     uint64_t nBsq_hsum[8];
@@ -239,7 +232,6 @@ static inline hsd_status_t jaccard_avx512_internal(const uint16_t *a, const uint
         n_b_sq += nBsq_hsum[k];
     }
 
-    // Remainder loop
     for (; i < n; ++i) {
         uint64_t val_a = (uint64_t)a[i];
         uint64_t val_b = (uint64_t)b[i];
@@ -368,30 +360,70 @@ hsd_status_t hsd_sim_jaccard_u16(const uint16_t *a, const uint16_t *b, size_t n,
     hsd_status_t status = HSD_FAILURE;
     HSD_TripleSumU64 sums = {0, 0, 0};
 
-    hsd_log("Using CPU backend...");
+#if defined(HSD_TARGET_AVX512BW)
+    hsd_log("CPU Path: Forced AVX512BW");
 #if defined(__AVX512BW__) && defined(__AVX512F__)
-    hsd_log("CPU Path: AVX512BW");
     status = jaccard_avx512_internal(a, b, n, &sums);
-#elif defined(__AVX2__)
-    hsd_log("CPU Path: AVX2");
+#else
+#error "HSD_TARGET_AVX512BW requires compiler support for AVX512F and AVX512BW"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX2)
+    hsd_log("CPU Path: Forced AVX2");
+#if defined(__AVX2__)
     status = jaccard_avx2_internal(a, b, n, &sums);
-#elif defined(__ARM_FEATURE_SVE)
-    hsd_log("CPU Path: SVE");
+#else
+#error "HSD_TARGET_AVX2 requires compiler support for AVX2 (e.g., -mavx2)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SVE)
+    hsd_log("CPU Path: Forced SVE");
+#if defined(__ARM_FEATURE_SVE)
     status = jaccard_sve_internal(a, b, n, &sums);
-#elif defined(__ARM_NEON)
-    hsd_log("CPU Path: NEON");
+#else
+#error "HSD_TARGET_SVE requires compiler support for SVE (e.g., -march=armv8.2-a+sve)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_NEON)
+    hsd_log("CPU Path: Forced NEON");
+#if defined(__ARM_NEON)
     status = jaccard_neon_internal(a, b, n, &sums);
 #else
-    hsd_log("CPU Path: Scalar");
+#error "HSD_TARGET_NEON requires compiler support for NEON (e.g., -mfpu=neon)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SCALAR)
+    hsd_log("CPU Path: Forced Scalar");
+    status = jaccard_scalar_internal(a, b, n, &sums);
+#else
+    hsd_log("Using CPU backend (auto-detected)...");
+#if defined(__AVX512BW__) && defined(__AVX512F__)
+    hsd_log("CPU Path: Auto AVX512BW");
+    status = jaccard_avx512_internal(a, b, n, &sums);
+#elif defined(__AVX2__)
+    hsd_log("CPU Path: Auto AVX2");
+    status = jaccard_avx2_internal(a, b, n, &sums);
+#elif defined(__ARM_FEATURE_SVE)
+    hsd_log("CPU Path: Auto SVE");
+    status = jaccard_sve_internal(a, b, n, &sums);
+#elif defined(__ARM_NEON)
+    hsd_log("CPU Path: Auto NEON");
+    status = jaccard_neon_internal(a, b, n, &sums);
+#else
+    hsd_log("CPU Path: Auto Scalar");
     status = jaccard_scalar_internal(a, b, n, &sums);
 #endif
+#endif
 
-    if (status != HSD_SUCCESS) {
+    if (status != HSD_SUCCESS && status != HSD_ERR_UNSUPPORTED) {
         hsd_log("CPU backend failed during sum calculation (status=%d).", status);
-        return status;  // Return error from sum calculation
-    } else {
+        return status;
+    } else if (status == HSD_SUCCESS) {
         hsd_log("CPU backend sum calculation succeeded.");
-        // Calculate final similarity from sums
         status = calculate_jaccard_similarity_from_sums_u64(sums.dot_product, sums.norm_a_sq,
                                                             sums.norm_b_sq, result);
         if (status != HSD_SUCCESS) {

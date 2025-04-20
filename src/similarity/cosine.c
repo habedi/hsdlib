@@ -19,7 +19,6 @@
 
 static inline hsd_status_t calculate_cosine_similarity_from_sums(float dot_product, float norm_a_sq,
                                                                  float norm_b_sq, float *result) {
-    // Check for intermediate NaN/Inf first
     if (isnan(dot_product) || isnan(norm_a_sq) || isnan(norm_b_sq) || isinf(dot_product) ||
         isinf(norm_a_sq) || isinf(norm_b_sq)) {
         hsd_log("Sums Check: Intermediate sums are Inf/NaN (dot=%.8e, nA_sq=%.8e, nB_sq=%.8e)",
@@ -27,9 +26,6 @@ static inline hsd_status_t calculate_cosine_similarity_from_sums(float dot_produ
         return HSD_ERR_INVALID_INPUT;
     }
 
-    // Determine if vectors are effectively zero based on squared norms
-    // Check against a value slightly larger than 0, like FLT_MIN,
-    // to account for underflow and potential FTZ behavior.
     int a_is_zero_sq = (norm_a_sq < FLT_MIN);
     int b_is_zero_sq = (norm_b_sq < FLT_MIN);
 
@@ -37,36 +33,29 @@ static inline hsd_status_t calculate_cosine_similarity_from_sums(float dot_produ
 
     if (a_is_zero_sq && b_is_zero_sq) {
         hsd_log("Norm Check: Both squared norms < FLT_MIN. Setting similarity to 1.0");
-        similarity = 1.0f;  // Both vectors are effectively zero
+        similarity = 1.0f;
     } else if (a_is_zero_sq || b_is_zero_sq) {
         hsd_log("Norm Check: One squared norm < FLT_MIN. Setting similarity to 0.0");
-        similarity = 0.0f;  // One vector is effectively zero, result is 0
+        similarity = 0.0f;
     } else {
-        // Neither vector's squared norm is near zero. Proceed with sqrt and division.
         float norm_a = sqrtf(norm_a_sq);
         float norm_b = sqrtf(norm_b_sq);
 
-        // Check for NaN/Inf after sqrt (e.g., if norm_sq was negative somehow)
         if (isnan(norm_a) || isnan(norm_b) || isinf(norm_a) || isinf(norm_b)) {
             hsd_log("Norm Check: sqrt resulted in Inf/NaN (norm_a=%.8e, norm_b=%.8e)", norm_a,
                     norm_b);
-            // Assign a value before returning error, maybe NaN? Or leave *result untouched?
-            // Assigning NaN might be clearer if the caller checks status first.
-            // *result = NAN; // Optional: Assign NaN on error
             return HSD_ERR_INVALID_INPUT;
         }
 
         float denominator = norm_a * norm_b;
 
-        // Check if denominator is extremely close to zero before dividing
         if (denominator < FLT_MIN) {
             hsd_log("Denominator Check: Denominator %.8e < FLT_MIN. Setting similarity to 0.0",
                     denominator);
-            similarity = 0.0f;  // Treat as orthogonal to avoid division issues
+            similarity = 0.0f;
         } else {
             similarity = dot_product / denominator;
 
-            // Clamp due to potential floating point inaccuracies near +/- 1.0
             if (similarity > 1.0f) {
                 similarity = 1.0f;
             } else if (similarity < -1.0f) {
@@ -77,10 +66,9 @@ static inline hsd_status_t calculate_cosine_similarity_from_sums(float dot_produ
 
     *result = similarity;
 
-    // Final check on the *assigned* result (redundant if checks above are thorough, but safe)
     if (isnan(*result) || isinf(*result)) {
         hsd_log("Final Result Check: Similarity is NaN or Inf (value: %.8e)", *result);
-        return HSD_ERR_INVALID_INPUT;  // Or HSD_FAILURE
+        return HSD_ERR_INVALID_INPUT;
     }
 
     return HSD_SUCCESS;
@@ -317,30 +305,80 @@ hsd_status_t hsd_sim_cosine_f32(const float *a, const float *b, size_t n, float 
 
     hsd_status_t status = HSD_FAILURE;
 
-    hsd_log("Using CPU backend...");
+#if defined(HSD_TARGET_AVX512)
+    hsd_log("CPU Path: Forced AVX512F");
 #if defined(__AVX512F__)
-    hsd_log("CPU Path: AVX512F");
     status = cosine_avx512_internal(a, b, n, result);
-#elif defined(__AVX2__)
-    hsd_log("CPU Path: AVX2");
+#else
+#error "HSD_TARGET_AVX512 requires compiler support for AVX512F (e.g., -mavx512f)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX2)
+    hsd_log("CPU Path: Forced AVX2");
+#if defined(__AVX2__)
     status = cosine_avx2_internal(a, b, n, result);
-#elif defined(__AVX__)
-    hsd_log("CPU Path: AVX");
+#else
+#error "HSD_TARGET_AVX2 requires compiler support for AVX2 (e.g., -mavx2)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX)
+    hsd_log("CPU Path: Forced AVX");
+#if defined(__AVX__)
     status = cosine_avx_internal(a, b, n, result);
-#elif defined(__ARM_FEATURE_SVE)
-    hsd_log("CPU Path: SVE");
+#else
+#error "HSD_TARGET_AVX requires compiler support for AVX (e.g., -mavx)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SVE)
+    hsd_log("CPU Path: Forced SVE");
+#if defined(__ARM_FEATURE_SVE)
     status = cosine_sve_internal(a, b, n, result);
-#elif defined(__ARM_NEON)
-    hsd_log("CPU Path: NEON");
+#else
+#error "HSD_TARGET_SVE requires compiler support for SVE (e.g., -march=armv8.2-a+sve)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_NEON)
+    hsd_log("CPU Path: Forced NEON");
+#if defined(__ARM_NEON)
     status = cosine_neon_internal(a, b, n, result);
 #else
-    hsd_log("CPU Path: Scalar");
+#error "HSD_TARGET_NEON requires compiler support for NEON (e.g., -mfpu=neon)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SCALAR)
+    hsd_log("CPU Path: Forced Scalar");
+    status = cosine_scalar_internal(a, b, n, result);
+#else
+    hsd_log("Using CPU backend (auto-detected)...");
+#if defined(__AVX512F__)
+    hsd_log("CPU Path: Auto AVX512F");
+    status = cosine_avx512_internal(a, b, n, result);
+#elif defined(__AVX2__)
+    hsd_log("CPU Path: Auto AVX2");
+    status = cosine_avx2_internal(a, b, n, result);
+#elif defined(__AVX__)
+    hsd_log("CPU Path: Auto AVX");
+    status = cosine_avx_internal(a, b, n, result);
+#elif defined(__ARM_FEATURE_SVE)
+    hsd_log("CPU Path: Auto SVE");
+    status = cosine_sve_internal(a, b, n, result);
+#elif defined(__ARM_NEON)
+    hsd_log("CPU Path: Auto NEON");
+    status = cosine_neon_internal(a, b, n, result);
+#else
+    hsd_log("CPU Path: Auto Scalar");
     status = cosine_scalar_internal(a, b, n, result);
 #endif
+#endif
 
-    if (status != HSD_SUCCESS) {
+    if (status != HSD_SUCCESS && status != HSD_ERR_UNSUPPORTED) {
         hsd_log("CPU backend failed (status=%d).", status);
-    } else {
+    } else if (status == HSD_SUCCESS) {
         hsd_log("CPU backend succeeded. Cosine similarity: %f", *result);
     }
 

@@ -7,22 +7,40 @@
 #endif
 
 const char *hsd_get_backend(void) {
-#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-    return "AVX512 (VPOPCNTDQ)";
-#elif defined(__AVX512BW__) && defined(__AVX512F__)
-    return "AVX512BW";
-#elif defined(__AVX512F__)
-    return "AVX512F";
-#elif defined(__AVX2__)
-    return "AVX2";
-#elif defined(__AVX__)
-    return "AVX";
-#elif defined(__ARM_FEATURE_SVE)
-    return "SVE";
-#elif defined(__ARM_NEON)
-    return "NEON";
+#if defined(HSD_TARGET_AVX512VPOPCNTDQ)
+    return "Forced AVX512 (VPOPCNTDQ)";
+#elif defined(HSD_TARGET_AVX512BW)
+    return "Forced AVX512BW";
+#elif defined(HSD_TARGET_AVX512)
+    return "Forced AVX512F";
+#elif defined(HSD_TARGET_AVX2)
+    return "Forced AVX2";
+#elif defined(HSD_TARGET_AVX)
+    return "Forced AVX";
+#elif defined(HSD_TARGET_SVE)
+    return "Forced SVE";
+#elif defined(HSD_TARGET_NEON)
+    return "Forced NEON";
+#elif defined(HSD_TARGET_SCALAR)
+    return "Forced Scalar";
 #else
-    return "Scalar";
+#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
+    return "Auto AVX512 (VPOPCNTDQ)";
+#elif defined(__AVX512BW__) && defined(__AVX512F__)
+    return "Auto AVX512BW";
+#elif defined(__AVX512F__)
+    return "Auto AVX512F";
+#elif defined(__AVX2__)
+    return "Auto AVX2";
+#elif defined(__AVX__)
+    return "Auto AVX";
+#elif defined(__ARM_FEATURE_SVE)
+    return "Auto SVE";
+#elif defined(__ARM_NEON)
+    return "Auto NEON";
+#else
+    return "Auto Scalar";
+#endif
 #endif
 }
 
