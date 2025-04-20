@@ -6,6 +6,7 @@ from scipy.spatial.distance import euclidean as scipy_euclidean
 
 import hsdpy
 
+
 # Tests follow an arrange-act-assert pattern
 
 def test_sqeuclidean_f32_basic():

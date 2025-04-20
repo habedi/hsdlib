@@ -69,8 +69,9 @@ static inline hsd_status_t hamming_avx512_vpopcntdq_internal(const uint8_t *a, c
     hsd_log("Exit hamming_avx512_vpopcntdq_internal");
     return HSD_SUCCESS;
 }
+#endif
 
-#elif defined(__AVX2__)
+#if defined(HSD_TARGET_AVX2) || defined(__AVX2__)
 
 static const uint8_t popcount_lookup_table[256] = {
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,

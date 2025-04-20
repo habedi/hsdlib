@@ -1,0 +1,23 @@
+name: Run Test (AArch64)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-aarch64:
+    runs-on: ubuntu-24.04-arm # Or `ubuntu-22.04-arm`
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make
+          make install-deps
+
+      - name: Run AArch64 Tests
+        run: make test-aarch64
