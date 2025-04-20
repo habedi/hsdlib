@@ -8,6 +8,7 @@ BIN_DIR    := bin
 LIB_DIR    := lib
 TARGET_DIR := obj
 DOC_DIR    := docs
+COV_DIR    := coverage_reports
 CLEAN_EXCLUDE_DIRS := env .env venv .venv
 
 ####################################################################################################
@@ -146,7 +147,7 @@ PYTHON_EGG_INFO := $(shell find . -maxdepth 2 -type d -name '*.egg-info') UNKNOW
 ####################################################################################################
 ## Directory Creation Rules
 ####################################################################################################
-$(BIN_DIR) $(LIB_DIR) $(DOC_DIR) $(TARGET_DIR) $(LIB_OBJ_DIRS):
+$(BIN_DIR) $(LIB_DIR) $(DOC_DIR) $(COV_DIR) $(TARGET_DIR) $(LIB_OBJ_DIRS):
 	@echo "Creating directory $@..."
 	@mkdir -p $@
 
@@ -156,8 +157,8 @@ $(BIN_DIR) $(LIB_DIR) $(DOC_DIR) $(TARGET_DIR) $(LIB_OBJ_DIRS):
 .DEFAULT_GOAL := help
 
 .PHONY: help
-help: ## Show help message for each target
-	@echo "HSDLib Makefile Help"
+help: ## Show this help message with all available targets and their descriptions
+	@echo "Hsdlib Makefile Help"
 	@echo "===================="
 	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 	| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -166,18 +167,18 @@ help: ## Show help message for each target
 ## Primary Build Targets
 ####################################################################################################
 .PHONY: all
-all: static shared ## Build static and shared libraries
+all: static shared ## Build both static and shared libraries (primary build target)
 	@echo "Build complete: static and shared libraries ready"
 
 .PHONY: rebuild
-rebuild: clean all ## Clean and rebuild libraries
+rebuild: clean all ## Perform a complete rebuild: clean all artifacts and rebuild from scratch
 	@echo "Rebuild complete"
 
 ####################################################################################################
 ## Library Build Rules
 ####################################################################################################
 .PHONY: static
-static: $(STATIC_LIB) ## Build static library
+static: $(STATIC_LIB) ## Build static library only (.a file for linking)
 	@echo "Static library built successfully: $(STATIC_LIB)"
 
 $(STATIC_LIB): $(LIB_OBJ_FILES) | $(LIB_DIR)
@@ -185,7 +186,7 @@ $(STATIC_LIB): $(LIB_OBJ_FILES) | $(LIB_DIR)
 	@$(AR) rcs $@ $^
 
 .PHONY: shared
-shared: $(SHARED_LIB) ## Build shared library
+shared: $(SHARED_LIB) ## Build shared library only (.so/.dylib for dynamic linking)
 	@echo "Shared library built successfully: $(SHARED_LIB)"
 
 $(SHARED_LIB): $(LIB_OBJ_FILES) | $(LIB_DIR)
@@ -207,7 +208,7 @@ $(TEST_OBJ_FILES): $(TARGET_DIR)/%.o: $(TEST_DIR)/%.c | $(TARGET_DIR) $(INC_DIR)
 ## Testing Targets
 ####################################################################################################
 .PHONY: test
-test: $(TEST_RUNNER) ## Run C tests
+test: $(TEST_RUNNER) ## Run C test suite with current HSD_TARGET backend (default: AUTO)
 	@echo "Running tests..."
 	@./$(TEST_RUNNER)
 	@echo "Tests completed"
@@ -220,7 +221,7 @@ $(TEST_RUNNER): $(TEST_OBJ_FILES) $(LIB_OBJ_FILES) | $(BIN_DIR)
 ## Sweep Tests by Backend
 ####################################################################################################
 .PHONY: test-all
-test-all: ## Run tests for all backends (AMD64, AArch64)
+test-all: ## Run tests for all backends on both AMD64 and AArch64 CPUs
 	@echo "=== Running tests for all backends ==="
 	@echo "=== Running tests for AMD64 ==="
 	@$(MAKE) test-amd64
@@ -229,7 +230,7 @@ test-all: ## Run tests for all backends (AMD64, AArch64)
 	@echo "=== All backend tests completed ==="
 
 .PHONY: test-amd64
-test-amd64: ## Run tests for AMD64 backends (AUTO, SCALAR, AVX, AVX2, AVX512)
+test-amd64: ## Test all AMD64 backends (AUTO, SCALAR, AVX, AVX2, AVX512)
 	@echo "=== Testing AMD64 (x86_64) backends ==="
 	@for t in $(AMD64_TARGETS); do \
 	  echo; \
@@ -239,7 +240,7 @@ test-amd64: ## Run tests for AMD64 backends (AUTO, SCALAR, AVX, AVX2, AVX512)
 	@echo "=== AMD64 backend tests completed ==="
 
 .PHONY: test-aarch64
-test-aarch64: ## Run tests for AArch64 backends (AUTO, SCALAR, NEON, SVE)
+test-aarch64: ## Test all AArch64 backends (AUTO, SCALAR, NEON, SVE)
 	@echo "=== Testing AArch64 backends ==="
 	@for t in $(AARCH64_TARGETS); do \
 	  echo; \
@@ -252,14 +253,14 @@ test-aarch64: ## Run tests for AArch64 backends (AUTO, SCALAR, NEON, SVE)
 ## Code Coverage
 ####################################################################################################
 .PHONY: coverage-clean
-coverage-clean: ## Clean object files for coverage build
+coverage-clean: ## Clean object files before coverage build
 	@echo "Cleaning object files for coverage build..."
 	@rm -f $(TARGET_DIR)/*.o $(TARGET_DIR)/*/*.o
 
 coverage: TEST_CFLAGS += -fprofile-arcs -ftest-coverage
 coverage: LIBS += -lgcov
 .PHONY: coverage
-coverage: coverage-clean $(TEST_RUNNER) ## Generate coverage report
+coverage: coverage-clean $(TEST_RUNNER) ## Generate code coverage report for C tests
 	@echo "Running tests for coverage..."
 	@./$(TEST_RUNNER)
 	@echo "Generating gcov files..."
@@ -277,25 +278,25 @@ coverage: coverage-clean $(TEST_RUNNER) ## Generate coverage report
 ## Zig Build Targets
 ####################################################################################################
 .PHONY: zig-shared
-zig-shared: | $(LIB_DIR) ## Build shared library with Zig
+zig-shared: | $(LIB_DIR) ## Build shared library using Zig build system
 	@echo "Building shared lib via Zig..."
 	@$(ZIG_CMD)
 	@cp "$(ZIG_OUT_LIB)/$(SHARED_LIB_FILENAME)" "$(SHARED_LIB)"
 	@echo "Zig shared library build complete: $(SHARED_LIB)"
 
 .PHONY: zig-static
-zig-static: | $(LIB_DIR) ## Build static library with Zig
+zig-static: | $(LIB_DIR) ## Build static library using Zig build system
 	@echo "Building static lib via Zig..."
 	@$(ZIG_CMD)
 	@cp "$(ZIG_OUT_LIB)/$(STATIC_LIB_FILENAME)" "$(STATIC_LIB)"
 	@echo "Zig static library build complete: $(STATIC_LIB)"
 
 .PHONY: zig-lib
-zig-lib: zig-shared zig-static ## Build both via Zig
+zig-lib: zig-shared zig-static ## Build both static and shared libraries using Zig
 	@echo "Zig library builds complete"
 
 .PHONY: zig-test-c
-zig-test-c: | $(BIN_DIR) ## Run C tests via Zig
+zig-test-c: | $(BIN_DIR) ## Build and run tests using Zig
 	@echo "Building tests via Zig..."
 	@$(ZIG_CMD)
 	@cp "$(ZIG_OUT_BIN)/test_runner" "$(TEST_RUNNER)"
@@ -304,7 +305,7 @@ zig-test-c: | $(BIN_DIR) ## Run C tests via Zig
 	@echo "Zig test execution complete"
 
 .PHONY: zig-clean
-zig-clean: ## Remove Zig build artifacts
+zig-clean: ## Remove all Zig-specific build artifacts and caches
 	@echo "Cleaning Zig build artifacts..."
 	@rm -rf zig-cache .zig-cache zig-out
 	@echo "Zig clean complete"
@@ -313,8 +314,14 @@ zig-clean: ## Remove Zig build artifacts
 ## Python Targets
 ####################################################################################################
 .PHONY: python-build
-python-build: ## Build Python wheel
+python-build: ## Build Python wheel package for distribution
 	@echo "Building Python wheel..."
+	@if [ ! -f "$(SHARED_LIB)" ]; then \
+		echo "ERROR: Shared library $(SHARED_LIB) not found!"; \
+		echo "Please run 'HSD_TARGET=AUTO make clean shared' or 'make clean zig-shared' first to build the library."; \
+		exit 1; \
+	fi
+	@echo "Using shared lib: $(SHARED_LIB)"
 	@echo "Copying shared lib into Python package..."
 	@mkdir -p python/hsdpy
 	@cp "$(LIB_DIR)/$(SHARED_LIB_FILENAME)" python/hsdpy/
@@ -322,7 +329,7 @@ python-build: ## Build Python wheel
 	@echo "Python wheel build complete"
 
 .PHONY: python-install
-python-install: python-build ## Install wheel
+python-install: python-build ## Install the Python wheel package locally (needs `uv`)
 	@echo "Installing Python wheel..."
 	$(eval WHEEL_FILE := $(shell find $(PYTHON_DIST_DIR) -type f -name '*.whl' | head -n 1))
 	@if [ -z "$(WHEEL_FILE)" ]; then \
@@ -332,25 +339,25 @@ python-install: python-build ## Install wheel
 	@echo "Python wheel installed successfully"
 
 .PHONY: python-test
-python-test: zig-shared ## Run Python tests
+python-test: zig-shared ## Run Python test suite with code coverage
 	@echo "Running Python tests..."
 	@uv run pytest python/tests --tb=short --disable-warnings --cov=python/hsdpy --cov-branch --cov-report=xml
 	@echo "Python tests complete"
 
 .PHONY: python-clean
-python-clean: ## Clean Python build artifacts
+python-clean: ## Clean Python-specific build artifacts and caches
 	@echo "Cleaning Python build artifacts..."
 	@rm -rf $(PYTHON_DIST_DIR) $(PYTHON_BUILD_DIR) $(PYTHON_EGG_INFO) site_packages*
 	@find python -type d -name '__pycache__' -exec rm -rf {} +
 	@find python/hsdpy -maxdepth 1 \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -delete
-	@rm '.coverage' 'coverage.xml'
+	@rm -f '.coverage' 'coverage.xml'
 	@echo "Python clean complete"
 
 ####################################################################################################
 ## Development Tools
 ####################################################################################################
 .PHONY: install-deps
-install-deps: ## Install system & Python deps (for Debian-based systems)
+install-deps: ## Install all required dependencies for development (for Debian-based systems)
 	@echo "Installing system dependencies..."
 	@sudo apt-get update && sudo apt-get install -y gcc clang llvm gdb clang-format cppcheck graphviz doxygen python3-pip snapd
 	@echo "Installing Python dependencies..."
@@ -360,13 +367,13 @@ install-deps: ## Install system & Python deps (for Debian-based systems)
 	@echo "All dependencies installed"
 
 .PHONY: format
-format: ## Format C code
+format: ## Format all C source and header files
 	@echo "Formatting C code..."
 	@find $(SRC_DIR) $(INC_DIR) $(TEST_DIR) -type f \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
 	@echo "Code formatting complete"
 
 .PHONY: lint
-lint: ## Lint C code
+lint: ## Run static analysis on C code
 	@echo "Linting C code..."
 	@cppcheck --enable=all --inconclusive --quiet --force --std=c11 -I$(INC_DIR) -I$(TEST_DIR) \
 	  --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=constVariable \
@@ -374,7 +381,7 @@ lint: ## Lint C code
 	@echo "Linting complete"
 
 .PHONY: doc
-doc: ## Generate docs via Doxygen
+doc: ## Generate documentation for the library using Doxygen
 	@echo "Generating documentation..."
 	@test -f Doxyfile || { echo "Error: Doxyfile not found."; exit 1; }
 	@doxygen Doxyfile
@@ -384,7 +391,7 @@ doc: ## Generate docs via Doxygen
 ## Installation Targets
 ####################################################################################################
 .PHONY: install
-install: static shared ## Install to /usr/local
+install: static shared ## Install libraries and headers to system directories (/usr/local)
 	@echo "Installing libraries and headers to /usr/local..."
 	@install -d /usr/local/include /usr/local/lib
 	@install -m 0644 $(INC_DIR)/*.h /usr/local/include/
@@ -394,7 +401,7 @@ install: static shared ## Install to /usr/local
 	@echo "Installation complete"
 
 .PHONY: uninstall
-uninstall: ## Remove from /usr/local
+uninstall: ## Remove all installed files from system directories (/usr/local)
 	@echo "Uninstalling from /usr/local..."
 	@for header in $(shell ls $(INC_DIR)/*.h); do rm -f /usr/local/include/$$(basename $$header); done
 	@rm -f /usr/local/lib/libhsd.a /usr/local/lib/libhsd.so
@@ -405,9 +412,9 @@ uninstall: ## Remove from /usr/local
 ## Cleaning
 ####################################################################################################
 .PHONY: clean
-clean: python-clean zig-clean ## Remove all build artifacts
+clean: python-clean zig-clean ## Remove all build artifacts and temporary files
 	@echo "Cleaning build artifacts..."
-	@rm -rf $(BIN_DIR) $(TARGET_DIR) $(LIB_DIR)
+	@rm -rf $(BIN_DIR) $(TARGET_DIR) $(LIB_DIR) $(COV_DIR)
 	$(eval EXCLUDE_PRUNE := $(foreach d,$(CLEAN_EXCLUDE_DIRS),-path ./$(d) -prune -o ))
 	@find . $(EXCLUDE_PRUNE) \( -name '*.gcda' -o -name '*.gcno' -o -name '*.gcov' -o -name '*.d' -o -name '*.o' -o -name '*.a' -o -name '*.so' \) -exec rm -f {} +
 	@rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex

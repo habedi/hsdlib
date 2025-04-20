@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "numpy>=2.2.0",
+    "numpy>=2.2.5",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +32,7 @@ dev = [
     "pyright>=1.1.391",
     "ruff>=0.9.3",
     "scipy>=1.15.2",
+    "build>=1.2.2.post1",
 ]
 
 [project.urls]
