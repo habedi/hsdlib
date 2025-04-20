@@ -73,4 +73,4 @@ static inline float hsd_internal_hsum_avx_f32(__m256 acc) {
 }
 #endif
 
-#endif  // HSDLIB_H
+#endif

@@ -8,12 +8,12 @@ from ctypes import (
 )
 from ctypes.util import find_library
 
-
 HSD_SUCCESS = 0
 HSD_ERR_NULL_PTR = -1
 HSD_ERR_UNSUPPORTED = -2
 HSD_ERR_INVALID_INPUT = -3
 HSD_FAILURE = -99
+
 
 def _load_hsd_library():
     lib_prefix = "lib"
@@ -33,10 +33,12 @@ def _load_hsd_library():
             return ctypes.CDLL(lib_path_pkg) if platform.system() != "Windows" else ctypes.WinDLL(
                 lib_path_pkg)
         except OSError as e:
-            print(f"Warning: Found library at '{lib_path_pkg}' but failed to load: {e}", file=sys.stderr)
+            print(f"Warning: Found library at '{lib_path_pkg}' but failed to load: {e}",
+                  file=sys.stderr)
 
     print(
-        f"Info: Library not found at expected package location '{lib_path_pkg}'. Trying other methods...", file=sys.stderr)
+        f"Info: Library not found at expected package location '{lib_path_pkg}'. Trying other methods...",
+        file=sys.stderr)
 
     lib_path_env = os.environ.get("HSDLIB_PATH")
     if lib_path_env:
@@ -52,7 +54,7 @@ def _load_hsd_library():
 
     project_root = os.path.join(_here, "..", "..")
     build_paths = [
-        os.path.join(project_root, "lib", lib_name), # Check ./lib/ first
+        os.path.join(project_root, "lib", lib_name),  # Check ./lib/ first
         os.path.join(project_root, "lib", "hsd.dll") if platform.system() == "Windows" else "",
         os.path.join(project_root, "build", lib_name),
         os.path.join(project_root, "cmake-build-debug", lib_name),
@@ -68,7 +70,8 @@ def _load_hsd_library():
             try:
                 return ctypes.CDLL(path) if platform.system() != "Windows" else ctypes.WinDLL(path)
             except OSError as e:
-                print(f"Warning: Found library at '{path}' but failed to load: {e}", file=sys.stderr)
+                print(f"Warning: Found library at '{path}' but failed to load: {e}",
+                      file=sys.stderr)
 
     found_path = find_library("hsd")
     if found_path:
@@ -104,6 +107,7 @@ c_uint16_p = POINTER(c_uint16)
 c_uint8_p = POINTER(c_uint8)
 c_uint64_p = POINTER(c_uint64)
 
+
 def _setup_signature(func_name, restype, argtypes):
     try:
         func = getattr(_lib, func_name)
@@ -113,6 +117,7 @@ def _setup_signature(func_name, restype, argtypes):
     except AttributeError:
         print(f"Warning: C function '{func_name}' not found in library.", file=sys.stderr)
         return None
+
 
 hsd_dist_sqeuclidean_f32 = _setup_signature("hsd_dist_sqeuclidean_f32", c_int,
                                             [c_float_p, c_float_p, c_size_t, c_float_p])

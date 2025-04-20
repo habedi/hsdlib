@@ -46,9 +46,9 @@ static inline hsd_status_t hamming_scalar_internal(const uint8_t *a, const uint8
 }
 
 #if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-static inline hsd_status_t hamming_avx512_vpocntdq_internal(const uint8_t *a, const uint8_t *b,
-                                                            size_t n, uint64_t *result) {
-    hsd_log("Enter hamming_avx512_vpocntdq_internal (n=%zu)", n);
+static inline hsd_status_t hamming_avx512_vpopcntdq_internal(const uint8_t *a, const uint8_t *b,
+                                                             size_t n, uint64_t *result) {
+    hsd_log("Enter hamming_avx512_vpopcntdq_internal (n=%zu)", n);
     size_t i = 0;
     uint64_t total_diff_bits = 0;
     __m512i popcnt_acc = _mm512_setzero_si512();
@@ -66,11 +66,12 @@ static inline hsd_status_t hamming_avx512_vpocntdq_internal(const uint8_t *a, co
         total_diff_bits += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
     }
     *result = total_diff_bits;
-    hsd_log("Exit hamming_avx512_vpocntdq_internal");
+    hsd_log("Exit hamming_avx512_vpopcntdq_internal");
     return HSD_SUCCESS;
 }
+#endif
 
-#elif defined(__AVX2__)
+#if defined(HSD_TARGET_AVX2) || defined(__AVX2__)
 
 static const uint8_t popcount_lookup_table[256] = {
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -207,34 +208,74 @@ hsd_status_t hsd_dist_hamming_u8(const uint8_t *a, const uint8_t *b, size_t n, u
     }
     if (a == NULL || b == NULL) {
         hsd_log("Input array pointers are NULL for non-zero n!");
-        *result = UINT64_MAX;  // Indicate error? Hamming is non-negative.
+        *result = UINT64_MAX;
         return HSD_ERR_NULL_PTR;
     }
 
     hsd_status_t status = HSD_FAILURE;
 
-    hsd_log("Using CPU backend...");
-
+#if defined(HSD_TARGET_AVX512VPOPCNTDQ)
+    hsd_log("CPU Path: Forced AVX512 (VPOPCNTDQ)");
 #if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-    hsd_log("CPU Path: AVX512 (VPOPCNTDQ)");
-    status = hamming_avx512_vpocntdq_internal(a, b, n, result);
-#elif defined(__AVX2__)
-    hsd_log("CPU Path: AVX2 (PSHUFB)");
+    status = hamming_avx512_vpopcntdq_internal(a, b, n, result);
+#else
+#error "HSD_TARGET_AVX512VPOPCNTDQ requires compiler support for AVX512F and AVX512VPOPCNTDQ"
+    *result = UINT64_MAX;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX2)
+    hsd_log("CPU Path: Forced AVX2 (PSHUFB)");
+#if defined(__AVX2__)
     status = hamming_avx2_pshufb_internal(a, b, n, result);
-#elif defined(__ARM_FEATURE_SVE)
-    hsd_log("CPU Path: SVE");
+#else
+#error "HSD_TARGET_AVX2 requires compiler support for AVX2 (e.g., -mavx2)"
+    *result = UINT64_MAX;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SVE)
+    hsd_log("CPU Path: Forced SVE");
+#if defined(__ARM_FEATURE_SVE)
     status = hamming_sve_internal(a, b, n, result);
-#elif defined(__ARM_NEON)
-    hsd_log("CPU Path: NEON");
+#else
+#error "HSD_TARGET_SVE requires compiler support for SVE (e.g., -march=armv8.2-a+sve)"
+    *result = UINT64_MAX;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_NEON)
+    hsd_log("CPU Path: Forced NEON");
+#if defined(__ARM_NEON)
     status = hamming_neon_internal(a, b, n, result);
 #else
-    hsd_log("CPU Path: Scalar");
+#error "HSD_TARGET_NEON requires compiler support for NEON (e.g., -mfpu=neon)"
+    *result = UINT64_MAX;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SCALAR)
+    hsd_log("CPU Path: Forced Scalar");
+    status = hamming_scalar_internal(a, b, n, result);
+#else
+    hsd_log("Using CPU backend (auto-detected)...");
+#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
+    hsd_log("CPU Path: Auto AVX512 (VPOPCNTDQ)");
+    status = hamming_avx512_vpopcntdq_internal(a, b, n, result);
+#elif defined(__AVX2__)
+    hsd_log("CPU Path: Auto AVX2 (PSHUFB)");
+    status = hamming_avx2_pshufb_internal(a, b, n, result);
+#elif defined(__ARM_FEATURE_SVE)
+    hsd_log("CPU Path: Auto SVE");
+    status = hamming_sve_internal(a, b, n, result);
+#elif defined(__ARM_NEON)
+    hsd_log("CPU Path: Auto NEON");
+    status = hamming_neon_internal(a, b, n, result);
+#else
+    hsd_log("CPU Path: Auto Scalar");
     status = hamming_scalar_internal(a, b, n, result);
 #endif
+#endif
 
-    if (status != HSD_SUCCESS) {
+    if (status != HSD_SUCCESS && status != HSD_ERR_UNSUPPORTED) {
         hsd_log("CPU backend failed (status=%d).", status);
-    } else {
+    } else if (status == HSD_SUCCESS) {
         hsd_log("CPU backend succeeded. Hamming distance: %lu", *result);
     }
 

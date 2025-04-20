@@ -1,5 +1,4 @@
 import ctypes
-
 import numpy as np
 
 # Import the low-level bindings from the sibling file

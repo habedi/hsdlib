@@ -33,7 +33,7 @@ static inline hsd_status_t manhattan_scalar_internal(const float *a, const float
 
     if (isnan(sum_abs_diff) || isinf(sum_abs_diff)) {
         hsd_log("Scalar Result Check: Final sum is NaN or Inf (value: %.8e)", sum_abs_diff);
-        *result = sum_abs_diff;  // Assign potentially invalid value
+        *result = sum_abs_diff;
         return HSD_ERR_INVALID_INPUT;
     }
 
@@ -48,7 +48,6 @@ static inline hsd_status_t manhattan_avx_internal(const float *a, const float *b
     hsd_log("Enter manhattan_avx_internal (n=%zu)", n);
     size_t i = 0;
     __m256 sum_acc = _mm256_setzero_ps();
-    // Mask to clear the sign bit for fabsf approximation
     const __m256 abs_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
 
     for (; i + 8 <= n; i += 8) {
@@ -104,7 +103,6 @@ static inline hsd_status_t manhattan_avx512_internal(const float *a, const float
     hsd_log("Enter manhattan_avx512_internal (n=%zu)", n);
     size_t i = 0;
     __m512 sum_acc = _mm512_setzero_ps();
-    // Mask to clear the sign bit for fabsf approximation
     const __m512 abs_mask = _mm512_castsi512_ps(_mm512_set1_epi32(0x7FFFFFFF));
 
     for (; i + 16 <= n; i += 16) {
@@ -148,7 +146,7 @@ static inline hsd_status_t manhattan_neon_internal(const float *a, const float *
         float32x4_t va = vld1q_f32(a + i);
         float32x4_t vb = vld1q_f32(b + i);
         float32x4_t diff = vsubq_f32(va, vb);
-        float32x4_t abs_diff = vabsq_f32(diff);  // NEON has direct abs intrinsic
+        float32x4_t abs_diff = vabsq_f32(diff);
         sum_acc = vaddq_f32(sum_acc, abs_diff);
     }
 
@@ -193,7 +191,7 @@ static inline hsd_status_t manhattan_sve_internal(const float *a, const float *b
         svfloat32_t va = svld1_f32(pg, a + i);
         svfloat32_t vb = svld1_f32(pg, b + i);
         svfloat32_t diff = svsub_f32_z(pg, va, vb);
-        svfloat32_t abs_diff = svabs_f32_z(pg, diff);  // SVE has direct abs intrinsic
+        svfloat32_t abs_diff = svabs_f32_z(pg, diff);
         sum_acc = svadd_f32_z(pg, sum_acc, abs_diff);
         i += svcntw();
     } while (svptest_any(svptrue_b32(), pg));
@@ -232,30 +230,80 @@ hsd_status_t hsd_dist_manhattan_f32(const float *a, const float *b, size_t n, fl
 
     hsd_status_t status = HSD_FAILURE;
 
-    hsd_log("Using CPU backend...");
+#if defined(HSD_TARGET_AVX512)
+    hsd_log("CPU Path: Forced AVX512F");
 #if defined(__AVX512F__)
-    hsd_log("CPU Path: AVX512F");
     status = manhattan_avx512_internal(a, b, n, result);
-#elif defined(__AVX2__)
-    hsd_log("CPU Path: AVX2");
+#else
+#error "HSD_TARGET_AVX512 requires compiler support for AVX512F (e.g., -mavx512f)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX2)
+    hsd_log("CPU Path: Forced AVX2");
+#if defined(__AVX2__)
     status = manhattan_avx2_internal(a, b, n, result);
-#elif defined(__AVX__)
-    hsd_log("CPU Path: AVX");
+#else
+#error "HSD_TARGET_AVX2 requires compiler support for AVX2 (e.g., -mavx2)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_AVX)
+    hsd_log("CPU Path: Forced AVX");
+#if defined(__AVX__)
     status = manhattan_avx_internal(a, b, n, result);
-#elif defined(__ARM_FEATURE_SVE)
-    hsd_log("CPU Path: SVE");
+#else
+#error "HSD_TARGET_AVX requires compiler support for AVX (e.g., -mavx)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SVE)
+    hsd_log("CPU Path: Forced SVE");
+#if defined(__ARM_FEATURE_SVE)
     status = manhattan_sve_internal(a, b, n, result);
-#elif defined(__ARM_NEON)
-    hsd_log("CPU Path: NEON");
+#else
+#error "HSD_TARGET_SVE requires compiler support for SVE (e.g., -march=armv8.2-a+sve)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_NEON)
+    hsd_log("CPU Path: Forced NEON");
+#if defined(__ARM_NEON)
     status = manhattan_neon_internal(a, b, n, result);
 #else
-    hsd_log("CPU Path: Scalar");
+#error "HSD_TARGET_NEON requires compiler support for NEON (e.g., -mfpu=neon)"
+    *result = NAN;
+    status = HSD_ERR_UNSUPPORTED;
+#endif
+#elif defined(HSD_TARGET_SCALAR)
+    hsd_log("CPU Path: Forced Scalar");
+    status = manhattan_scalar_internal(a, b, n, result);
+#else
+    hsd_log("Using CPU backend (auto-detected)...");
+#if defined(__AVX512F__)
+    hsd_log("CPU Path: Auto AVX512F");
+    status = manhattan_avx512_internal(a, b, n, result);
+#elif defined(__AVX2__)
+    hsd_log("CPU Path: Auto AVX2");
+    status = manhattan_avx2_internal(a, b, n, result);
+#elif defined(__AVX__)
+    hsd_log("CPU Path: Auto AVX");
+    status = manhattan_avx_internal(a, b, n, result);
+#elif defined(__ARM_FEATURE_SVE)
+    hsd_log("CPU Path: Auto SVE");
+    status = manhattan_sve_internal(a, b, n, result);
+#elif defined(__ARM_NEON)
+    hsd_log("CPU Path: Auto NEON");
+    status = manhattan_neon_internal(a, b, n, result);
+#else
+    hsd_log("CPU Path: Auto Scalar");
     status = manhattan_scalar_internal(a, b, n, result);
 #endif
+#endif
 
-    if (status != HSD_SUCCESS) {
+    if (status != HSD_SUCCESS && status != HSD_ERR_UNSUPPORTED) {
         hsd_log("CPU backend failed (status=%d).", status);
-    } else {
+    } else if (status == HSD_SUCCESS) {
         hsd_log("CPU backend succeeded. Manhattan distance: %f", *result);
     }
 
