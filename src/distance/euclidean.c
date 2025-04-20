@@ -1,49 +1,46 @@
 #include <float.h>
 #include <math.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdio.h>
 
-#if defined(__AVX__) || defined(__AVX512F__)
+#include "hsdlib.h"
+
+#if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
-#endif
-
-#if defined(__ARM_NEON)
+#elif defined(__aarch64__) || defined(__arm__)
 #include <arm_neon.h>
-#endif
-
 #if defined(__ARM_FEATURE_SVE)
 #include <arm_sve.h>
 #endif
+#endif
 
-#include "hsdlib.h"
+typedef hsd_status_t (*hsd_sqeuclidean_f32_func_t)(const float *, const float *, size_t, float *);
 
-static inline hsd_status_t sqeuclid_scalar_internal(const float *a, const float *b, size_t n,
-                                                    float *result) {
+static hsd_status_t sqeuclid_scalar_internal(const float *a, const float *b, size_t n,
+                                             float *result) {
     hsd_log("Enter sqeuclid_scalar_internal (n=%zu)", n);
     float sum_sq_diff = 0.0f;
     for (size_t i = 0; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
-            hsd_log("Scalar Input Check: NaN/Inf detected at index %zu", i);
+            *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
         float d = a[i] - b[i];
         sum_sq_diff += d * d;
     }
-
     if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
-        hsd_log("Scalar Sum Check: Sum of squares is NaN or Inf (value: %.8e)", sum_sq_diff);
         *result = sum_sq_diff;
         return HSD_ERR_INVALID_INPUT;
     }
-
     *result = sum_sq_diff;
-    hsd_log("Exit sqeuclid_scalar_internal");
     return HSD_SUCCESS;
 }
 
-#if defined(__AVX__)
-static inline hsd_status_t sqeuclid_avx_internal(const float *a, const float *b, size_t n,
-                                                 float *result) {
+#if defined(__x86_64__) || defined(_M_X64)
+__attribute__((target("avx"))) static hsd_status_t sqeuclid_avx_internal(const float *a,
+                                                                         const float *b, size_t n,
+                                                                         float *result) {
     hsd_log("Enter sqeuclid_avx_internal (n=%zu)", n);
     size_t i = 0;
     __m256 acc = _mm256_setzero_ps();
@@ -58,250 +55,178 @@ static inline hsd_status_t sqeuclid_avx_internal(const float *a, const float *b,
 #endif
     }
     float sum_sq_diff = hsd_internal_hsum_avx_f32(acc);
-
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
-            hsd_log("AVX Remainder Check: NaN/Inf detected at index %zu", i);
+            *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
         float d = a[i] - b[i];
         sum_sq_diff += d * d;
     }
-
     if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
-        hsd_log("AVX Sum Check: Sum of squares is NaN or Inf (value: %.8e)", sum_sq_diff);
         *result = sum_sq_diff;
         return HSD_ERR_INVALID_INPUT;
     }
-
     *result = sum_sq_diff;
-    hsd_log("Exit sqeuclid_avx_internal");
     return HSD_SUCCESS;
 }
-#endif
 
-#if defined(__AVX2__)
-static inline hsd_status_t sqeuclid_avx2_internal(const float *a, const float *b, size_t n,
-                                                  float *result) {
-    hsd_log("Enter sqeuclid_avx2_internal (using AVX impl) (n=%zu)", n);
-#if defined(__AVX__)
-    hsd_status_t status = sqeuclid_avx_internal(a, b, n, result);
-    hsd_log("Exit sqeuclid_avx2_internal (status=%d)", status);
-    return status;
-#else
-    hsd_log("AVX2 defined but AVX not? Falling back to scalar.");
-    hsd_status_t status = sqeuclid_scalar_internal(a, b, n, result);
-    hsd_log("Exit sqeuclid_avx2_internal (status=%d)", status);
-    return status;
-#endif
+__attribute__((target("avx2,fma"))) static hsd_status_t sqeuclid_avx2_internal(const float *a,
+                                                                               const float *b,
+                                                                               size_t n,
+                                                                               float *result) {
+    hsd_log("Enter sqeuclid_avx2_internal (n=%zu)", n);
+    size_t i = 0;
+    __m256 acc = _mm256_setzero_ps();
+    for (; i + 8 <= n; i += 8) {
+        __m256 va = _mm256_loadu_ps(a + i);
+        __m256 vb = _mm256_loadu_ps(b + i);
+        __m256 d = _mm256_sub_ps(va, vb);
+        acc = _mm256_fmadd_ps(d, d, acc);
+    }
+    float sum_sq_diff = hsd_internal_hsum_avx_f32(acc);
+    for (; i < n; ++i) {
+        if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
+            *result = NAN;
+            return HSD_ERR_INVALID_INPUT;
+        }
+        float d = a[i] - b[i];
+        sum_sq_diff += d * d;
+    }
+    if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
+        *result = sum_sq_diff;
+        return HSD_ERR_INVALID_INPUT;
+    }
+    *result = sum_sq_diff;
+    return HSD_SUCCESS;
 }
-#endif
 
-#if defined(__AVX512F__)
-static inline hsd_status_t sqeuclid_avx512_internal(const float *a, const float *b, size_t n,
-                                                    float *result) {
+__attribute__((target("avx512f"))) static hsd_status_t sqeuclid_avx512_internal(const float *a,
+                                                                                const float *b,
+                                                                                size_t n,
+                                                                                float *result) {
     hsd_log("Enter sqeuclid_avx512_internal (n=%zu)", n);
     size_t i = 0;
     __m512 acc = _mm512_setzero_ps();
     for (; i + 16 <= n; i += 16) {
         __m512 va = _mm512_loadu_ps(a + i);
         __m512 vb = _mm512_loadu_ps(b + i);
-        __m512 d = _mm512_sub_ps(va, vb);
-        acc = _mm512_fmadd_ps(d, d, acc);
+        acc = _mm512_fmadd_ps(_mm512_sub_ps(va, vb), _mm512_sub_ps(va, vb), acc);
     }
     float sum_sq_diff = _mm512_reduce_add_ps(acc);
-
     for (; i < n; ++i) {
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
-            hsd_log("AVX512 Remainder Check: NaN/Inf detected at index %zu", i);
+            *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
         float d = a[i] - b[i];
         sum_sq_diff += d * d;
     }
-
     if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
-        hsd_log("AVX512 Sum Check: Sum of squares is NaN or Inf (value: %.8e)", sum_sq_diff);
         *result = sum_sq_diff;
         return HSD_ERR_INVALID_INPUT;
     }
-
     *result = sum_sq_diff;
-    hsd_log("Exit sqeuclid_avx512_internal");
     return HSD_SUCCESS;
 }
 #endif
 
-#if defined(__ARM_NEON)
-static inline hsd_status_t sqeuclid_neon_internal(const float *a, const float *b, size_t n,
-                                                  float *result) {
-    hsd_log("Enter sqeuclid_neon_internal (n=%zu)", n);
-    size_t i = 0;
-    float32x4_t acc = vdupq_n_f32(0.0f);
-    for (; i + 4 <= n; i += 4) {
-        float32x4_t va = vld1q_f32(a + i);
-        float32x4_t vb = vld1q_f32(b + i);
-        float32x4_t d = vsubq_f32(va, vb);
-        acc = vfmaq_f32(acc, d, d);
-    }
+static hsd_sqeuclidean_f32_func_t resolve_sqeuclidean_f32_internal(void);
+static hsd_status_t sqeuclidean_f32_resolver_trampoline(const float *a, const float *b, size_t n,
+                                                        float *result);
 
-#if defined(__aarch64__)
-    float sum_sq_diff = vaddvq_f32(acc);
-#else
-    float32x2_t sum_pair = vpadd_f32(vget_low_f32(acc), vget_high_f32(acc));
-    sum_pair = vpadd_f32(sum_pair, sum_pair);
-    float sum_sq_diff = vget_lane_f32(sum_pair, 0);
-#endif
-
-    for (; i < n; ++i) {
-        if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
-            hsd_log("NEON Remainder Check: NaN/Inf detected at index %zu", i);
-            return HSD_ERR_INVALID_INPUT;
-        }
-        float d = a[i] - b[i];
-        sum_sq_diff += d * d;
-    }
-
-    if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
-        hsd_log("NEON Sum Check: Sum of squares is NaN or Inf (value: %.8e)", sum_sq_diff);
-        *result = sum_sq_diff;
-        return HSD_ERR_INVALID_INPUT;
-    }
-
-    *result = sum_sq_diff;
-    hsd_log("Exit sqeuclid_neon_internal");
-    return HSD_SUCCESS;
-}
-#endif
-
-#if defined(__ARM_FEATURE_SVE)
-static inline hsd_status_t sqeuclid_sve_internal(const float *a, const float *b, size_t n,
-                                                 float *result) {
-    hsd_log("Enter sqeuclid_sve_internal (n=%zu)", n);
-    int64_t i = 0;
-    svbool_t pg;
-    svfloat32_t sum_acc = svdup_n_f32(0.0f);
-
-    do {
-        pg = svwhilelt_b32((uint64_t)i, (uint64_t)n);
-        svfloat32_t va = svld1_f32(pg, a + i);
-        svfloat32_t vb = svld1_f32(pg, b + i);
-        svfloat32_t diff = svsub_f32_z(pg, va, vb);
-        sum_acc = svmla_f32_z(pg, sum_acc, diff, diff);
-        i += svcntw();
-    } while (svptest_any(svptrue_b32(), pg));
-
-    float sum_sq_diff = svaddv_f32(svptrue_b32(), sum_acc);
-
-    if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
-        hsd_log("SVE Sum Check: Sum of squares is NaN or Inf (value: %.8e)", sum_sq_diff);
-        *result = sum_sq_diff;
-        return HSD_ERR_INVALID_INPUT;
-    }
-
-    *result = sum_sq_diff;
-    hsd_log("Exit sqeuclid_sve_internal");
-    return HSD_SUCCESS;
-}
-#endif
+static atomic_uintptr_t hsd_sqeuclidean_f32_ptr =
+    ATOMIC_VAR_INIT((uintptr_t)sqeuclidean_f32_resolver_trampoline);
 
 hsd_status_t hsd_dist_sqeuclidean_f32(const float *a, const float *b, size_t n, float *result) {
-    hsd_log("Enter hsd_dist_sqeuclidean_f32 (n=%zu)", n);
-
-    if (result == NULL) {
-        hsd_log("Result pointer is NULL!");
-        return HSD_ERR_NULL_PTR;
-    }
+    if (result == NULL) return HSD_ERR_NULL_PTR;
     if (n == 0) {
         *result = 0.0f;
-        hsd_log("n is 0, returning 0.0f distance.");
         return HSD_SUCCESS;
     }
     if (a == NULL || b == NULL) {
-        hsd_log("Input array pointers are NULL for non-zero n!");
         *result = NAN;
         return HSD_ERR_NULL_PTR;
     }
+    hsd_sqeuclidean_f32_func_t func = (hsd_sqeuclidean_f32_func_t)atomic_load_explicit(
+        &hsd_sqeuclidean_f32_ptr, memory_order_acquire);
+    return func(a, b, n, result);
+}
 
-    hsd_status_t status = HSD_FAILURE;
+static hsd_status_t sqeuclidean_f32_resolver_trampoline(const float *a, const float *b, size_t n,
+                                                        float *result) {
+    hsd_log("SqEuclidean F32: resolving backend");
+    hsd_sqeuclidean_f32_func_t resolved_func = resolve_sqeuclidean_f32_internal();
+    atomic_store_explicit(&hsd_sqeuclidean_f32_ptr, (uintptr_t)resolved_func, memory_order_release);
+    return resolved_func(a, b, n, result);
+}
 
-#if defined(HSD_TARGET_AVX512)
-    hsd_log("CPU Path: Forced AVX512F");
-#if defined(__AVX512F__)
-    status = sqeuclid_avx512_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_AVX512 requires compiler support for AVX512F (e.g., -mavx512f)"
-    *result = NAN;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_AVX2)
-    hsd_log("CPU Path: Forced AVX2");
-#if defined(__AVX2__)
-    status = sqeuclid_avx2_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_AVX2 requires compiler support for AVX2 (e.g., -mavx2)"
-    *result = NAN;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_AVX)
-    hsd_log("CPU Path: Forced AVX");
-#if defined(__AVX__)
-    status = sqeuclid_avx_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_AVX requires compiler support for AVX (e.g., -mavx)"
-    *result = NAN;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_SVE)
-    hsd_log("CPU Path: Forced SVE");
-#if defined(__ARM_FEATURE_SVE)
-    status = sqeuclid_sve_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_SVE requires compiler support for SVE (e.g., -march=armv8.2-a+sve)"
-    *result = NAN;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_NEON)
-    hsd_log("CPU Path: Forced NEON");
-#if defined(__ARM_NEON)
-    status = sqeuclid_neon_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_NEON requires compiler support for NEON (e.g., -mfpu=neon)"
-    *result = NAN;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_SCALAR)
-    hsd_log("CPU Path: Forced Scalar");
-    status = sqeuclid_scalar_internal(a, b, n, result);
-#else
-    hsd_log("Using CPU backend (auto-detected)...");
-#if defined(__AVX512F__)
-    hsd_log("CPU Path: Auto AVX512F");
-    status = sqeuclid_avx512_internal(a, b, n, result);
-#elif defined(__AVX2__)
-    hsd_log("CPU Path: Auto AVX2");
-    status = sqeuclid_avx2_internal(a, b, n, result);
-#elif defined(__AVX__)
-    hsd_log("CPU Path: Auto AVX");
-    status = sqeuclid_avx_internal(a, b, n, result);
-#elif defined(__ARM_FEATURE_SVE)
-    hsd_log("CPU Path: Auto SVE");
-    status = sqeuclid_sve_internal(a, b, n, result);
-#elif defined(__ARM_NEON)
-    hsd_log("CPU Path: Auto NEON");
-    status = sqeuclid_neon_internal(a, b, n, result);
-#else
-    hsd_log("CPU Path: Auto Scalar");
-    status = sqeuclid_scalar_internal(a, b, n, result);
-#endif
-#endif
+static hsd_sqeuclidean_f32_func_t resolve_sqeuclidean_f32_internal(void) {
+    HSD_Backend forced = hsd_get_current_backend_choice();
+    hsd_sqeuclidean_f32_func_t chosen_func = sqeuclid_scalar_internal;
+    const char *reason = "Scalar (Default)";
 
-    if (status != HSD_SUCCESS && status != HSD_ERR_UNSUPPORTED) {
-        hsd_log("CPU backend failed (status=%d).", status);
-    } else if (status == HSD_SUCCESS) {
-        hsd_log("CPU backend succeeded. Squared Euclidean distance: %f", *result);
+    if (forced != HSD_BACKEND_AUTO) {
+        hsd_log("SqEuclidean F32: Manual backend requested: %d", forced);
+        bool supported = false;
+        switch (forced) {
+            case HSD_BACKEND_AVX512F:
+#if defined(__x86_64__) || defined(_M_X64)
+                if (hsd_cpu_has_avx512f()) {
+                    chosen_func = sqeuclid_avx512_internal;
+                    reason = "AVX512F (Forced)";
+                    supported = true;
+                }
+#endif
+                break;
+            case HSD_BACKEND_AVX2:
+#if defined(__x86_64__) || defined(_M_X64)
+                if (hsd_cpu_has_avx2()) {
+                    chosen_func = sqeuclid_avx2_internal;
+                    reason = "AVX2 (Forced)";
+                    supported = true;
+                } else if (hsd_cpu_has_avx()) {
+                    chosen_func = sqeuclid_avx_internal;
+                    reason = "AVX (fallback from forced AVX2)";
+                    supported = true;
+                }
+#endif
+                break;
+            case HSD_BACKEND_AVX:
+#if defined(__x86_64__) || defined(_M_X64)
+                if (hsd_cpu_has_avx()) {
+                    chosen_func = sqeuclid_avx_internal;
+                    reason = "AVX (Forced)";
+                    supported = true;
+                }
+#endif
+                break;
+            case HSD_BACKEND_SCALAR:
+                chosen_func = sqeuclid_scalar_internal;
+                reason = "Scalar (Forced)";
+                supported = true;
+                break;
+            default:
+                reason = "Scalar (Forced backend invalid)";
+                break;
+        }
+        if (!supported && forced != HSD_BACKEND_SCALAR) {
+            hsd_log("Warning: Forced backend %d not supported. Falling back to Scalar.", forced);
+            chosen_func = sqeuclid_scalar_internal;
+            reason = "Scalar (Forced fallback)";
+        }
+    } else {
+        reason = "Scalar (Auto)";
+#if defined(__x86_64__) || defined(_M_X64)
+        if (hsd_cpu_has_avx512f())
+            chosen_func = sqeuclid_avx512_internal, reason = "AVX512F (Auto)";
+        else if (hsd_cpu_has_avx2())
+            chosen_func = sqeuclid_avx2_internal, reason = "AVX2 (Auto)";
+        else if (hsd_cpu_has_avx())
+            chosen_func = sqeuclid_avx_internal, reason = "AVX (Auto)";
+#endif
     }
 
-    hsd_log("Exit hsd_dist_sqeuclidean_f32 (final status=%d)", status);
-    return status;
+    hsd_log("Dispatch: Resolved SqEuclidean F32 to: %s", reason);
+    return chosen_func;
 }

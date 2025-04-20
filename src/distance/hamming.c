@@ -1,31 +1,31 @@
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>  // Needed for memcpy in AVX2
 
-#if defined(__AVX2__) || defined(__AVX512BW__) || defined(__AVX512VPOPCNTDQ__)
+#include "hsdlib.h"
+
+#if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
-#endif
-
-#if defined(__ARM_NEON)
+#elif defined(__aarch64__) || defined(__arm__)
 #include <arm_neon.h>
-#endif
-
 #if defined(__ARM_FEATURE_SVE)
 #include <arm_sve.h>
 #endif
+#endif
 
-#include "hsdlib.h"
+typedef hsd_status_t (*hsd_hamming_u8_func_t)(const uint8_t *, const uint8_t *, size_t, uint64_t *);
 
 #ifndef __has_builtin
 #define __has_builtin(x) 0
 #endif
-
 static inline uint8_t hsd_internal_popcount8(uint8_t val) {
 #if __has_builtin(__builtin_popcount)
     return (uint8_t)__builtin_popcount(val);
 #else
     uint8_t count = 0;
-    while (val > 0) {
+    while (val) {
         val &= (val - 1);
         count++;
     }
@@ -33,252 +33,231 @@ static inline uint8_t hsd_internal_popcount8(uint8_t val) {
 #endif
 }
 
-static inline hsd_status_t hamming_scalar_internal(const uint8_t *a, const uint8_t *b, size_t n,
-                                                   uint64_t *result) {
+static hsd_status_t hamming_scalar_internal(const uint8_t *a, const uint8_t *b, size_t n,
+                                            uint64_t *result) {
     hsd_log("Enter hamming_scalar_internal (n=%zu)", n);
-    uint64_t total_diff_bits = 0;
+    uint64_t total = 0;
     for (size_t i = 0; i < n; ++i) {
-        total_diff_bits += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
+        total += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
     }
-    *result = total_diff_bits;
-    hsd_log("Exit hamming_scalar_internal");
+    *result = total;
     return HSD_SUCCESS;
 }
 
-#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-static inline hsd_status_t hamming_avx512_vpopcntdq_internal(const uint8_t *a, const uint8_t *b,
-                                                             size_t n, uint64_t *result) {
+#if defined(__x86_64__) || defined(_M_X64)
+__attribute__((target("avx512f,avx512vpopcntdq"))) static hsd_status_t
+hamming_avx512_vpopcntdq_internal(const uint8_t *a, const uint8_t *b, size_t n, uint64_t *result) {
     hsd_log("Enter hamming_avx512_vpopcntdq_internal (n=%zu)", n);
     size_t i = 0;
-    uint64_t total_diff_bits = 0;
-    __m512i popcnt_acc = _mm512_setzero_si512();
-
+    __m512i acc = _mm512_setzero_si512();
     for (; i + 64 <= n; i += 64) {
         __m512i va = _mm512_loadu_si512((const __m512i *)(a + i));
         __m512i vb = _mm512_loadu_si512((const __m512i *)(b + i));
-        __m512i xor_res = _mm512_xor_si512(va, vb);
-        __m512i popcnt64 = _mm512_popcnt_epi64(xor_res);
-        popcnt_acc = _mm512_add_epi64(popcnt_acc, popcnt64);
+        __m512i x = _mm512_xor_si512(va, vb);
+        acc = _mm512_add_epi64(acc, _mm512_popcnt_epi64(x));
     }
-    total_diff_bits = _mm512_reduce_add_epi64(popcnt_acc);
-
-    for (; i < n; ++i) {
-        total_diff_bits += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
-    }
-    *result = total_diff_bits;
-    hsd_log("Exit hamming_avx512_vpopcntdq_internal");
+    uint64_t sums[8];
+    _mm512_storeu_si512((__m512i *)sums, acc);
+    uint64_t total = 0;
+    for (int j = 0; j < 8; ++j) total += sums[j];
+    for (; i < n; ++i) total += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
+    *result = total;
     return HSD_SUCCESS;
 }
-#endif
 
-#if defined(HSD_TARGET_AVX2) || defined(__AVX2__)
-
-static const uint8_t popcount_lookup_table[256] = {
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
-
-static inline hsd_status_t hamming_avx2_pshufb_internal(const uint8_t *a, const uint8_t *b,
-                                                        size_t n, uint64_t *result) {
+__attribute__((target("avx2"))) static hsd_status_t hamming_avx2_pshufb_internal(const uint8_t *a,
+                                                                                 const uint8_t *b,
+                                                                                 size_t n,
+                                                                                 uint64_t *result) {
     hsd_log("Enter hamming_avx2_pshufb_internal (n=%zu)", n);
-    size_t i = 0;
-    __m256i total_popcnt_sad = _mm256_setzero_si256();
 
-    const __m128i popcount_lut_128 = _mm_loadu_si128((const __m128i *)popcount_lookup_table);
+    static const uint8_t popcount_table[32] = {0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+                                               0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4};
+
+    const __m256i lookup = _mm256_loadu_si256((const __m256i *)popcount_table);
     const __m256i low_mask = _mm256_set1_epi8(0x0F);
+    size_t i = 0;
+    __m256i acc = _mm256_setzero_si256();
 
     for (; i + 32 <= n; i += 32) {
         __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
         __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
-        __m256i xor_res = _mm256_xor_si256(va, vb);
+        __m256i x = _mm256_xor_si256(va, vb);
 
-        __m256i low_nibbles = _mm256_and_si256(xor_res, low_mask);
-        __m256i high_nibbles = _mm256_and_si256(_mm256_srli_epi16(xor_res, 4), low_mask);
+        __m256i lo = _mm256_and_si256(x, low_mask);
+        __m256i hi = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
 
-        __m128i low_nib_lo = _mm256_castsi256_si128(low_nibbles);
-        __m128i low_nib_hi = _mm256_extracti128_si256(low_nibbles, 1);
-        __m128i high_nib_lo = _mm256_castsi256_si128(high_nibbles);
-        __m128i high_nib_hi = _mm256_extracti128_si256(high_nibbles, 1);
+        __m256i pc_lo = _mm256_shuffle_epi8(lookup, lo);
+        __m256i pc_hi = _mm256_shuffle_epi8(lookup, hi);
 
-        __m128i popcnt_low_lo = _mm_shuffle_epi8(popcount_lut_128, low_nib_lo);
-        __m128i popcnt_low_hi = _mm_shuffle_epi8(popcount_lut_128, low_nib_hi);
-        __m128i popcnt_high_lo = _mm_shuffle_epi8(popcount_lut_128, high_nib_lo);
-        __m128i popcnt_high_hi = _mm_shuffle_epi8(popcount_lut_128, high_nib_hi);
-
-        __m256i popcnt_low = _mm256_set_m128i(popcnt_low_hi, popcnt_low_lo);
-        __m256i popcnt_high = _mm256_set_m128i(popcnt_high_hi, popcnt_high_lo);
-
-        __m256i byte_popcnt = _mm256_add_epi8(popcnt_low, popcnt_high);
-
-        total_popcnt_sad = _mm256_add_epi64(total_popcnt_sad,
-                                            _mm256_sad_epu8(byte_popcnt, _mm256_setzero_si256()));
+        __m256i pc = _mm256_add_epi8(pc_lo, pc_hi);
+        acc = _mm256_add_epi64(acc, _mm256_sad_epu8(pc, _mm256_setzero_si256()));
     }
 
     uint64_t sums[4];
-    _mm256_storeu_si256((__m256i *)sums, total_popcnt_sad);
-    uint64_t total_diff_bits = sums[0] + sums[1] + sums[2] + sums[3];
+    _mm256_storeu_si256((__m256i *)sums, acc);
+    uint64_t total = sums[0] + sums[1] + sums[2] + sums[3];
 
     for (; i < n; ++i) {
-        total_diff_bits += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
+        total += hsd_internal_popcount8(a[i] ^ b[i]);
     }
-    *result = total_diff_bits;
-    hsd_log("Exit hamming_avx2_pshufb_internal");
+
+    *result = total;
     return HSD_SUCCESS;
 }
+
 #endif
 
-#if defined(__ARM_NEON)
-static inline hsd_status_t hamming_neon_internal(const uint8_t *a, const uint8_t *b, size_t n,
-                                                 uint64_t *result) {
+#if defined(__aarch64__) || defined(__arm__)
+static hsd_status_t hamming_neon_internal(const uint8_t *a, const uint8_t *b, size_t n,
+                                          uint64_t *result) {
     hsd_log("Enter hamming_neon_internal (n=%zu)", n);
     size_t i = 0;
-    uint64x2_t total_acc = vdupq_n_u64(0);
-
+    uint64x2_t acc = vdupq_n_u64(0);
     for (; i + 16 <= n; i += 16) {
         uint8x16_t va = vld1q_u8(a + i);
         uint8x16_t vb = vld1q_u8(b + i);
-        uint8x16_t xor_res = veorq_u8(va, vb);
-        uint8x16_t popcnt_bytes = vcntq_u8(xor_res);
-
-        uint16x8_t pair_sum16 = vpaddlq_u8(popcnt_bytes);
-        uint32x4_t quad_sum32 = vpaddlq_u16(pair_sum16);
-        uint64x2_t quad_sum64 = vpaddlq_u32(quad_sum32);
-        total_acc = vaddq_u64(total_acc, quad_sum64);
+        uint8x16_t x = veorq_u8(va, vb);
+        uint8x16_t pc = vcntq_u8(x);
+        acc = vpadalq_u32(acc, vpaddlq_u16(vpaddlq_u8(pc)));
     }
 #if defined(__aarch64__)
-    uint64_t total_diff_bits = vaddvq_u64(total_acc);
+    uint64_t total = vaddvq_u64(acc);
 #else
-    uint64_t total_diff_bits = vgetq_lane_u64(total_acc, 0) + vgetq_lane_u64(total_acc, 1);
+    uint64_t total = vgetq_lane_u64(acc, 0) + vgetq_lane_u64(acc, 1);
 #endif
-
-    for (; i < n; ++i) {
-        total_diff_bits += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
-    }
-    *result = total_diff_bits;
-    hsd_log("Exit hamming_neon_internal");
+    for (; i < n; ++i) total += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
+    *result = total;
     return HSD_SUCCESS;
 }
-#endif
 
 #if defined(__ARM_FEATURE_SVE)
-static inline hsd_status_t hamming_sve_internal(const uint8_t *a, const uint8_t *b, size_t n,
-                                                uint64_t *result) {
+__attribute__((target("+sve"))) static hsd_status_t hamming_sve_internal(const uint8_t *a,
+                                                                         const uint8_t *b, size_t n,
+                                                                         uint64_t *result) {
     hsd_log("Enter hamming_sve_internal (n=%zu)", n);
-    uint64_t total_diff_bits = 0;
     int64_t i = 0;
+    int64_t n_sve = (int64_t)n;  // Use for loop comparison
     svbool_t pg;
-    svuint64_t total_acc = svdup_n_u64(0);
+    svuint64_t acc = svdup_n_u64(0);  // Accumulator for u64 sums
 
-    do {
+    while (i < n_sve) {
+        // FIX: Cast loop counter/bound to uint64_t for predicate generation
         pg = svwhilelt_b8((uint64_t)i, (uint64_t)n);
+
         svuint8_t va = svld1_u8(pg, a + i);
         svuint8_t vb = svld1_u8(pg, b + i);
-        svuint8_t xor_res = sveor_z(pg, va, vb);
-        svuint8_t popcnt_bytes = svcnt_u8_z(pg, xor_res);
+        svuint8_t x = sveor_z(pg, va, vb);  // Zero inactive lanes
+        svuint8_t pc8 = svcnt_u8_z(pg, x);  // Zero inactive lanes
 
-        total_acc = svadd_u64_z(pg, total_acc, svuaddv_u8(pg, popcnt_bytes));
+        // Widen popcounts and accumulate into u64 vector
+        svuint16_t pc16_lo = svunpklo_u16(pc8);
+        svuint16_t pc16_hi = svunpkhi_u16(pc8);
+        svuint32_t pc32_lo = svunpklo_u32(pc16_lo);
+        svuint32_t pc32_hi = svunpkhi_u32(pc16_hi);
 
-        i += svcntb();
-    } while (svptest_any(svptrue_b8(), pg));
+        // svaddwb/t are NOT predicated, operate on zeroed inputs from above
+        acc = svaddwb_u64(acc, pc32_lo);
+        acc = svaddwt_u64(acc, pc32_hi);
 
-    total_diff_bits = svaddv_u64(svptrue_b64(), total_acc);
+        i += svcntb();  // Increment by number of bytes processed
+    }
 
-    *result = total_diff_bits;
-    hsd_log("Exit hamming_sve_internal");
+    *result = svaddv_u64(svptrue_b64(), acc);  // Horizontal sum of u64 lanes
     return HSD_SUCCESS;
 }
+#endif  // __ARM_FEATURE_SVE
 #endif
 
-hsd_status_t hsd_dist_hamming_u8(const uint8_t *a, const uint8_t *b, size_t n, uint64_t *result) {
-    hsd_log("Enter hsd_dist_hamming_u8 (n=%zu)", n);
+static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void);
+static hsd_status_t hamming_u8_resolver_trampoline(const uint8_t *, const uint8_t *, size_t,
+                                                   uint64_t *);
 
-    if (result == NULL) {
-        hsd_log("Result pointer is NULL!");
-        return HSD_ERR_NULL_PTR;
-    }
+static atomic_uintptr_t hsd_hamming_u8_ptr =
+    ATOMIC_VAR_INIT((uintptr_t)hamming_u8_resolver_trampoline);
+
+hsd_status_t hsd_dist_hamming_u8(const uint8_t *a, const uint8_t *b, size_t n, uint64_t *result) {
+    if (result == NULL) return HSD_ERR_NULL_PTR;
     if (n == 0) {
-        hsd_log("n is 0, Hamming distance is 0.");
         *result = 0;
         return HSD_SUCCESS;
     }
     if (a == NULL || b == NULL) {
-        hsd_log("Input array pointers are NULL for non-zero n!");
         *result = UINT64_MAX;
         return HSD_ERR_NULL_PTR;
     }
+    hsd_hamming_u8_func_t func =
+        (hsd_hamming_u8_func_t)atomic_load_explicit(&hsd_hamming_u8_ptr, memory_order_acquire);
+    return func(a, b, n, result);
+}
 
-    hsd_status_t status = HSD_FAILURE;
+static hsd_status_t hamming_u8_resolver_trampoline(const uint8_t *a, const uint8_t *b, size_t n,
+                                                   uint64_t *result) {
+    hsd_hamming_u8_func_t resolved = resolve_hamming_u8_internal();
+    uintptr_t exp = (uintptr_t)hamming_u8_resolver_trampoline;
+    atomic_compare_exchange_strong_explicit(&hsd_hamming_u8_ptr, &exp, (uintptr_t)resolved,
+                                            memory_order_release, memory_order_relaxed);
+    return resolved(a, b, n, result);
+}
 
-#if defined(HSD_TARGET_AVX512VPOPCNTDQ)
-    hsd_log("CPU Path: Forced AVX512 (VPOPCNTDQ)");
-#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-    status = hamming_avx512_vpopcntdq_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_AVX512VPOPCNTDQ requires compiler support for AVX512F and AVX512VPOPCNTDQ"
-    *result = UINT64_MAX;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_AVX2)
-    hsd_log("CPU Path: Forced AVX2 (PSHUFB)");
-#if defined(__AVX2__)
-    status = hamming_avx2_pshufb_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_AVX2 requires compiler support for AVX2 (e.g., -mavx2)"
-    *result = UINT64_MAX;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_SVE)
-    hsd_log("CPU Path: Forced SVE");
-#if defined(__ARM_FEATURE_SVE)
-    status = hamming_sve_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_SVE requires compiler support for SVE (e.g., -march=armv8.2-a+sve)"
-    *result = UINT64_MAX;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_NEON)
-    hsd_log("CPU Path: Forced NEON");
-#if defined(__ARM_NEON)
-    status = hamming_neon_internal(a, b, n, result);
-#else
-#error "HSD_TARGET_NEON requires compiler support for NEON (e.g., -mfpu=neon)"
-    *result = UINT64_MAX;
-    status = HSD_ERR_UNSUPPORTED;
-#endif
-#elif defined(HSD_TARGET_SCALAR)
-    hsd_log("CPU Path: Forced Scalar");
-    status = hamming_scalar_internal(a, b, n, result);
-#else
-    hsd_log("Using CPU backend (auto-detected)...");
-#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-    hsd_log("CPU Path: Auto AVX512 (VPOPCNTDQ)");
-    status = hamming_avx512_vpopcntdq_internal(a, b, n, result);
-#elif defined(__AVX2__)
-    hsd_log("CPU Path: Auto AVX2 (PSHUFB)");
-    status = hamming_avx2_pshufb_internal(a, b, n, result);
-#elif defined(__ARM_FEATURE_SVE)
-    hsd_log("CPU Path: Auto SVE");
-    status = hamming_sve_internal(a, b, n, result);
-#elif defined(__ARM_NEON)
-    hsd_log("CPU Path: Auto NEON");
-    status = hamming_neon_internal(a, b, n, result);
-#else
-    hsd_log("CPU Path: Auto Scalar");
-    status = hamming_scalar_internal(a, b, n, result);
-#endif
-#endif
+static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void) {
+    HSD_Backend forced = hsd_get_current_backend_choice();
+    hsd_hamming_u8_func_t chosen_func = hamming_scalar_internal;
+    const char *reason = "Scalar (Default)";
 
-    if (status != HSD_SUCCESS && status != HSD_ERR_UNSUPPORTED) {
-        hsd_log("CPU backend failed (status=%d).", status);
-    } else if (status == HSD_SUCCESS) {
-        hsd_log("CPU backend succeeded. Hamming distance: %lu", *result);
+    if (forced != HSD_BACKEND_AUTO) {
+        hsd_log("Hamming U8: Forced backend %d", forced);
+        bool supported = false;
+        switch (forced) {
+#if defined(__x86_64__) || defined(_M_X64)
+            case HSD_BACKEND_AVX512VPOPCNTDQ:
+                if (hsd_cpu_has_avx512f() && hsd_cpu_has_avx512vpopcntdq()) {
+                    chosen_func = hamming_avx512_vpopcntdq_internal;
+                    reason = "AVX512VPOPCNTDQ (Forced)";
+                    supported = true;
+                }
+                break;
+            case HSD_BACKEND_AVX2:
+                if (hsd_cpu_has_avx2()) {
+                    chosen_func = hamming_avx2_pshufb_internal;
+                    reason = "AVX2 (Forced)";
+                    supported = true;
+                }
+                break;
+#endif
+            case HSD_BACKEND_SCALAR:
+                chosen_func = hamming_scalar_internal;
+                reason = "Scalar (Forced)";
+                supported = true;
+                break;
+            default:
+                reason = "Scalar (Forced backend invalid)";
+                chosen_func = hamming_scalar_internal;
+                break;
+        }
+        if (!(supported) && forced != HSD_BACKEND_SCALAR) {
+            hsd_log("Forced %d not supported; falling back", forced);
+            chosen_func = hamming_scalar_internal;
+            reason = "Scalar (Fallback)";
+        }
+    } else {
+        reason = "Scalar (Auto)";
+#if defined(__x86_64__) || defined(_M_X64)
+        if (hsd_cpu_has_avx512f() && hsd_cpu_has_avx512vpopcntdq()) {
+            chosen_func = hamming_avx512_vpopcntdq_internal;
+            reason = "AVX512VPOPCNTDQ (Auto)";
+        } else if (hsd_cpu_has_avx2()) {
+            chosen_func = hamming_avx2_pshufb_internal;
+            reason = "AVX2 (Auto)";
+        }
+#elif defined(__aarch64__) || defined(__arm__)
+        if (hsd_cpu_has_neon()) {
+            chosen_func = hamming_neon_internal;
+            reason = "NEON (Auto)";
+        }
+#endif
     }
 
-    hsd_log("Exit hsd_dist_hamming_u8 (final status=%d)", status);
-    return status;
+    hsd_log("Dispatch: %s", reason);
+    return chosen_func;
 }

@@ -6,6 +6,8 @@ on:
     tags:
       - 'v*'  # Trigger on version tags
 
+permissions:
+  contents: read
 jobs:
   lint:
     runs-on: ubuntu-latest

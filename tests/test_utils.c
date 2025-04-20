@@ -1,4 +1,3 @@
-#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,113 +13,57 @@ void run_utils_tests(void) {
     printf("\n======= Running Utilities Tests =======\n");
 
     printf("-- Running test: hsd_get_backend check --\n");
-    const char *backend = hsd_get_backend();
-    if (backend != NULL) {
-        printf("INFO: hsd_get_backend returned string: \"%s\"\n", backend);
-
-        // Determine the expected backend string based on HSD_TARGET_* first
-        const char *expected_backend = NULL;
-#if defined(HSD_TARGET_AVX512VPOPCNTDQ)
-        expected_backend = "Forced AVX512 (VPOPCNTDQ)";
-#elif defined(HSD_TARGET_AVX512BW)
-        expected_backend = "Forced AVX512BW";
-#elif defined(HSD_TARGET_AVX512)  // Corresponds to HSD_TARGET_AVX512F
-        expected_backend = "Forced AVX512F";
-#elif defined(HSD_TARGET_AVX2)
-        expected_backend = "Forced AVX2";
-#elif defined(HSD_TARGET_AVX)
-        expected_backend = "Forced AVX";
-#elif defined(HSD_TARGET_SVE)
-        expected_backend = "Forced SVE";
-#elif defined(HSD_TARGET_NEON)
-        expected_backend = "Forced NEON";
-#elif defined(HSD_TARGET_SCALAR)
-        expected_backend = "Forced Scalar";
-#else
-// No HSD_TARGET_* defined, check auto-detection based on compiler flags
-#if defined(__AVX512VPOPCNTDQ__) && defined(__AVX512F__)
-        expected_backend = "Auto AVX512 (VPOPCNTDQ)";
-#elif defined(__AVX512BW__) && defined(__AVX512F__)
-        expected_backend = "Auto AVX512BW";
-#elif defined(__AVX512F__)
-        expected_backend = "Auto AVX512F";
-#elif defined(__AVX2__)
-        expected_backend = "Auto AVX2";
-#elif defined(__AVX__)
-        expected_backend = "Auto AVX";
-#elif defined(__ARM_FEATURE_SVE)
-        expected_backend = "Auto SVE";
-#elif defined(__ARM_NEON)
-        expected_backend = "Auto NEON";
-#else
-        expected_backend = "Auto Scalar";
-#endif
-#endif  // HSD_TARGET_* checks
-
-        // Now compare the actual backend with the expected one
-        if (expected_backend != NULL && strcmp(backend, expected_backend) == 0) {
-            printf(
-                "PASS: hsd_get_backend returned expected string \"%s\" for current build "
-                "configuration.\n",
-                expected_backend);
-        } else {
-            fprintf(stderr, "FAIL: hsd_get_backend check failed.\n");
-            fprintf(stderr, "      Expected: \"%s\"\n",
-                    expected_backend ? expected_backend : "(Could not determine expected)");
-            fprintf(stderr, "      Actual:   \"%s\"\n", backend);
-            g_test_failed++;
-        }
-
+    hsd_set_manual_backend(HSD_BACKEND_AUTO);
+    const char *backend_auto = hsd_get_backend();
+    printf("INFO: Auto backend string: \"%s\"\n", backend_auto ? backend_auto : "NULL");
+    if (backend_auto != NULL) {
+        printf("PASS: hsd_get_backend() returned non-NULL in AUTO mode.\n");
     } else {
-        fprintf(stderr, "FAIL: hsd_get_backend returned NULL\n");
+        fprintf(stderr, "FAIL: hsd_get_backend() returned NULL in AUTO mode.\n");
         g_test_failed++;
     }
+
+    hsd_status_t status = hsd_set_manual_backend(HSD_BACKEND_SCALAR);
+    if (status == HSD_SUCCESS) {
+        const char *backend_manual = hsd_get_backend();
+        printf("INFO: Forced SCALAR backend string: \"%s\"\n",
+               backend_manual ? backend_manual : "NULL");
+        const char *expected_manual = "Forced Scalar";
+        if (backend_manual != NULL && strcmp(backend_manual, expected_manual) == 0) {
+            printf("PASS: hsd_get_backend() returned expected string for forced SCALAR.\n");
+        } else {
+            fprintf(stderr, "FAIL: hsd_get_backend() check failed for forced SCALAR.\n");
+            fprintf(stderr, "      Expected: \"%s\"\n", expected_manual);
+            fprintf(stderr, "      Actual:   \"%s\"\n", backend_manual ? backend_manual : "NULL");
+            g_test_failed++;
+        }
+    } else {
+        fprintf(stderr, "FAIL: Could not set manual backend to SCALAR (status %d).\n", status);
+        g_test_failed++;
+    }
+    hsd_set_manual_backend(HSD_BACKEND_AUTO);
     printf("\n");
 
     printf("-- Running test: hsd_has_avx512 check --\n");
     int has_avx512 = hsd_has_avx512();
     printf("INFO: hsd_has_avx512() returned: %d\n", has_avx512);
-#if defined(__AVX512F__)
-    if (has_avx512 == 1) {
-        printf("PASS: hsd_has_avx512() returned 1 as expected (__AVX512F__ defined).\n");
+#if defined(__x86_64__) || defined(_M_X64)
+    bool expected_avx512_runtime = hsd_cpu_has_avx512f();
+    if (has_avx512 == (int)expected_avx512_runtime) {
+        printf("PASS: hsd_has_avx512() returned %d consistent with runtime check.\n", has_avx512);
     } else {
-        fprintf(stderr,
-                "FAIL: hsd_has_avx512() returned %d but expected 1 (__AVX512F__ defined).\n",
-                has_avx512);
+        fprintf(stderr, "FAIL: hsd_has_avx512() returned %d but runtime check indicates %d.\n",
+                has_avx512, (int)expected_avx512_runtime);
         g_test_failed++;
     }
 #else
     if (has_avx512 == 0) {
-        printf("PASS: hsd_has_avx512() returned 0 as expected (__AVX512F__ not defined).\n");
+        printf("PASS: hsd_has_avx512() returned 0 as expected on non-x86 platform.\n");
     } else {
-        fprintf(stderr,
-                "FAIL: hsd_has_avx512() returned %d but expected 0 (__AVX512F__ not defined).\n",
+        fprintf(stderr, "FAIL: hsd_has_avx512() returned %d but expected 0 on non-x86 platform.\n",
                 has_avx512);
         g_test_failed++;
     }
-#endif
-    printf("\n");
-
-    printf("-- Running test: hsd_internal_hsum_avx_f32 check --\n");
-#if defined(__AVX__)
-    __m256 test_vec = _mm256_set_ps(8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f);
-    float expected_sum = 1.0f + 2.0f + 3.0f + 4.0f + 5.0f + 6.0f + 7.0f + 8.0f;
-    float actual_sum = hsd_internal_hsum_avx_f32(test_vec);
-    float tolerance = FLT_EPSILON * 8.0f;
-
-    if (fabsf(expected_sum - actual_sum) <= tolerance) {
-        printf("PASS: hsd_internal_hsum_avx_f32 (Expected: %.8f, Actual: %.8f)\n", expected_sum,
-               actual_sum);
-    } else {
-        fprintf(stderr, "FAIL: hsd_internal_hsum_avx_f32\n");
-        fprintf(stderr, "      Expected: %.8f\n", expected_sum);
-        fprintf(stderr, "      Actual:   %.8f\n", actual_sum);
-        fprintf(stderr, "      Difference: %.8e > Tolerance: %.8e\n",
-                fabsf(expected_sum - actual_sum), tolerance);
-        g_test_failed++;
-    }
-#else
-    printf("SKIPPED: hsd_internal_hsum_avx_f32 (__AVX__ not defined)\n");
 #endif
     printf("\n");
 

@@ -1,4 +1,4 @@
-name: Run Test
+name: Run Test (AMD64)
 
 on:
   workflow_dispatch:  # Allow manual runs
@@ -21,7 +21,7 @@ jobs:
           make install-deps
 
       - name: Run Tests and Generate Coverage Report
-        run: make coverage
+        run: make cov
 
       - name: Upload Coverage Reports to Codecov
         uses: codecov/codecov-action@v5
