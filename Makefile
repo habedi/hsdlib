@@ -168,7 +168,7 @@ $(TEST_OBJ_FILES): $(TARGET_DIR)/%.o: $(TEST_DIR)/%.c | $(TARGET_DIR) $(INC_DIR)
 ## Testing Targets
 ####################################################################################################
 .PHONY: test
-test: $(TEST_RUNNER) ## Compile and run the test runner binary
+test: $(TEST_RUNNER) ## Run C tests
 	@echo "Running tests..."
 	./$(TEST_RUNNER)
 
@@ -187,7 +187,7 @@ coverage-clean: ## Clean object files for coverage build
 coverage: CFLAGS += -fprofile-arcs -ftest-coverage
 coverage: LIBS += -lgcov
 .PHONY: coverage
-coverage: coverage-clean $(TEST_RUNNER) ## Generate code coverage report for the C library
+coverage: coverage-clean $(TEST_RUNNER) ## Generate code coverage report for the C files
 	@echo "Running tests for coverage data generation..."
 	./$(TEST_RUNNER)
 	@echo "Generating gcov files for src/ directory and subdirectories..."
@@ -204,7 +204,7 @@ coverage: coverage-clean $(TEST_RUNNER) ## Generate code coverage report for the
 ## Zig Build Targets
 ####################################################################################################
 .PHONY: zig-shared
-zig-shared: | $(LIB_DIR) ## Build shared library using Zig build system
+zig-shared: | $(LIB_DIR) ## Build shared library (using Zig build system)
 	@echo "Building shared library with Zig $(ZIG_BUILD_FLAGS)..."
 	$(ZIG_CMD)
 	@echo "Copying Zig output $(ZIG_OUT_LIB)/$(SHARED_LIB_FILENAME) to $(SHARED_LIB)..."
@@ -212,7 +212,7 @@ zig-shared: | $(LIB_DIR) ## Build shared library using Zig build system
 	cp "$(ZIG_OUT_LIB)/$(SHARED_LIB_FILENAME)" "$(SHARED_LIB)"
 
 .PHONY: zig-static
-zig-static: | $(LIB_DIR) ## Build static library using Zig build system
+zig-static: | $(LIB_DIR) ## Build static library (using Zig build system)
 	@echo "Building static library with Zig $(ZIG_BUILD_FLAGS)..."
 	$(ZIG_CMD)
 	@echo "Copying Zig output $(ZIG_OUT_LIB)/$(STATIC_LIB_FILENAME) to $(STATIC_LIB)..."
@@ -220,11 +220,11 @@ zig-static: | $(LIB_DIR) ## Build static library using Zig build system
 	cp "$(ZIG_OUT_LIB)/$(STATIC_LIB_FILENAME)" "$(STATIC_LIB)"
 
 .PHONY: zig-lib
-zig-lib: zig-shared zig-static ## Build the static abd shared libraries using Zig build system
+zig-lib: zig-shared zig-static ## Build the static abd shared libraries (using Zig build system)
 	@echo "Zig libraries built at $(SHARED_LIB) and $(STATIC_LIB)"
 
 .PHONY: zig-test-c
-zig-test-c: | $(BIN_DIR) ## Compile and run C tests using Zig build system
+zig-test-c: | $(BIN_DIR) ## Run C tests (using Zig build system)
 	@echo "Building C tests with Zig $(ZIG_BUILD_FLAGS)..."
 	$(ZIG_CMD)
 	@echo "Copying test runner to $(TEST_RUNNER)..."
@@ -290,7 +290,7 @@ format: ## Format C files
 	find $(SRC_DIR) $(INC_DIR) $(TEST_DIR) \( -name '*.c' -o -name '*.h' \) -exec clang-format -i {} +
 
 .PHONY: lint
-lint: ## Run linter checks
+lint: ## Run linter checks on C files
 	@echo "Running linter checks..."
 	cppcheck --enable=all --inconclusive --quiet --force --std=c11 -I$(INC_DIR) -I$(TEST_DIR) \
 			 --suppress=missingIncludeSystem \
@@ -299,7 +299,7 @@ lint: ## Run linter checks
 			 $(shell find $(SRC_DIR) -name '*.c') $(INC_DIR) $(TEST_DIR)
 
 .PHONY: doc
-doc: ## Generate documentation using Doxygen
+doc: ## Generate documentation for the library using Doxygen
 	@echo "Generating documentation..."
 	@test -f Doxyfile || { echo "Error: Doxyfile not found."; exit 1; }
 	doxygen Doxyfile

@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{}); // Defaults to .Debug if not specified
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit(); // Ensure cleanup
+    defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     // Prepare common C flags
