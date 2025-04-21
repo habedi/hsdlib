@@ -41,4 +41,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to make a contribution
 
 ### License
 
-Hsdlib is licensed under the MIT License ([LICENSE](LICENSE)).
+This project is licensed under the MIT License ([LICENSE](LICENSE)).
