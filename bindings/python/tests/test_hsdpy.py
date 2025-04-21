@@ -1,10 +1,9 @@
+import hsdpy
 import numpy as np
 import pytest
 from scipy.spatial.distance import cityblock as scipy_manhattan
 from scipy.spatial.distance import cosine as scipy_cosine_dist
 from scipy.spatial.distance import euclidean as scipy_euclidean
-
-import hsdpy
 
 
 # Tests follow an arrange-act-assert pattern

@@ -1,4 +1,4 @@
-name: Run Test
+name: Publish C API Documentation
 
 on:
   workflow_dispatch:  # Allow manual runs
@@ -6,6 +6,8 @@ on:
     tags:
       - 'v*'  # Trigger on version tags
 
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,10 +22,12 @@ jobs:
           sudo apt-get install -y make
           make install-deps
 
-      - name: Run Tests and Generate Coverage Report
-        run: make coverage
+      - name: Generate Documentation
+        run: make doc
 
-      - name: Upload Coverage Reports to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Deploy Documentation to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        #if: github.ref == 'refs/heads/main'
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs

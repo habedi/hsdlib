@@ -1,4 +1,4 @@
-name: Run Linters
+name: Run Benchmarks (AArch64)
 
 on:
   workflow_dispatch:  # Allow manual runs
@@ -9,11 +9,11 @@ on:
 permissions:
   contents: read
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Install Dependencies
@@ -22,5 +22,6 @@ jobs:
           sudo apt-get install -y make
           make install-deps
 
-      - name: Run Linters
-        run: make lint
+      - name: Run Benchmarks for AArch64
+        run: make bench-aarch64
+

@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 keywords = ["python binding", "simd", "distance metrics", "similarity measures"]
 classifiers = [
-    "Development Status :: 1 - Beta",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -27,8 +27,6 @@ dependencies = [
 dev = [
     "pytest>=8.0.1",
     "pytest-cov>=6.0.0",
-    "pytest-mock>=3.14.0",
-    "pytest-benchmark>=5.1.0",
     "pyright>=1.1.391",
     "ruff>=0.9.3",
     "scipy>=1.15.2",
@@ -44,16 +42,16 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["hsdpy"]
-package-dir = { "" = "python" }
+package-dir = { "" = "bindings/python" }
 
 [tool.setuptools.package-data]
 hsdpy = ["*.so", "*.dylib", "*.dll"]
 
 [tool.pyright]
-include = ["python/hsdpy", "python/tests"]
+include = ["bindings/python/hsdpy", "bindings/python/tests"]
 venvPath = "."
 venv = ".venv"
-strict = ["python/hsdpy/*.py"]
+strict = ["bindings/python/hsdpy/*.py"]
 
 [tool.ruff.lint]
 select = ["C4", "E", "F", "I", "PERF", "UP"]

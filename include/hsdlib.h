@@ -1,30 +1,54 @@
 #ifndef HSDLIB_H
 #define HSDLIB_H
 
+#ifdef HSDLIB_NO_CHECKS
+#define HSD_ALLOW_FP_CHECKS 0
+#else
+#define HSD_ALLOW_FP_CHECKS 1
+#endif
+
 #include <math.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#if defined(__GNUC__) || defined(__clang__)
+#define HSD_ASM __asm__ volatile
+#else
+#define HSD_ASM asm volatile
+#endif
+
+#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
+#include <immintrin.h>
+#endif
 
 typedef enum {
     HSD_SUCCESS = 0,
     HSD_ERR_NULL_PTR = -1,
-    HSD_ERR_UNSUPPORTED = -2,
     HSD_ERR_INVALID_INPUT = -3,
+    HSD_ERR_CPU_NOT_SUPPORTED = -4,
     HSD_FAILURE = -99
 } HSD_Status;
 
 typedef HSD_Status hsd_status_t;
 
-#ifdef NO_AVX512
-#undef __AVX512F__
-#undef __AVX512BW__
-#undef __AVX512VPOPCNTDQ__
-#endif
-
 typedef struct {
     int ftz_enabled;
     int daz_enabled;
 } hsd_fp_status_t;
+
+typedef enum {
+    HSD_BACKEND_AUTO = 0,
+    HSD_BACKEND_SCALAR,
+    HSD_BACKEND_AVX,
+    HSD_BACKEND_AVX2,
+    HSD_BACKEND_AVX512F,
+    HSD_BACKEND_AVX512BW,
+    HSD_BACKEND_AVX512DQ,
+    HSD_BACKEND_AVX512VPOPCNTDQ,
+    HSD_BACKEND_NEON,
+    HSD_BACKEND_SVE
+} HSD_Backend;
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,8 +63,24 @@ hsd_status_t hsd_sim_cosine_f32(const float *a, const float *b, size_t n, float 
 hsd_status_t hsd_sim_jaccard_u16(const uint16_t *a, const uint16_t *b, size_t n, float *result);
 
 const char *hsd_get_backend(void);
-int hsd_has_avx512(void);
+bool hsd_has_avx512(void);
 hsd_fp_status_t hsd_get_fp_mode_status(void);
+
+hsd_status_t hsd_set_manual_backend(HSD_Backend backend);
+HSD_Backend hsd_get_current_backend_choice(void);
+
+#if defined(__x86_64__) || defined(_M_X64)
+bool hsd_cpu_has_avx(void);
+bool hsd_cpu_has_avx2(void);
+bool hsd_cpu_has_fma(void);
+bool hsd_cpu_has_avx512f(void);
+bool hsd_cpu_has_avx512bw(void);
+bool hsd_cpu_has_avx512dq(void);
+bool hsd_cpu_has_avx512vpopcntdq(void);
+#elif defined(__aarch64__)
+bool hsd_cpu_has_neon(void);
+bool hsd_cpu_has_sve(void);
+#endif
 
 #ifdef HSD_DEBUG
 #include <stdarg.h>
@@ -59,13 +99,14 @@ static inline void hsdlib_internal_do_log(const char *format, ...) {
 #define hsd_log(...) ((void)0)
 #endif
 
-#if defined(__AVX__)
+#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
 #include <immintrin.h>
+
 static inline float hsd_internal_hsum_avx_f32(__m256 acc) {
-    __m128 sum128 = _mm_add_ps(_mm256_castps256_ps128(acc), _mm256_extractf128_ps(acc, 1));
-    sum128 = _mm_hadd_ps(sum128, sum128);
-    sum128 = _mm_hadd_ps(sum128, sum128);
-    return _mm_cvtss_f32(sum128);
+    __m128 hsum_128 = _mm_add_ps(_mm256_castps256_ps128(acc), _mm256_extractf128_ps(acc, 1));
+    hsum_128 = _mm_hadd_ps(hsum_128, hsum_128);
+    hsum_128 = _mm_hadd_ps(hsum_128, hsum_128);
+    return _mm_cvtss_f32(hsum_128);
 }
 #endif
 
