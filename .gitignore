@@ -43,6 +43,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 htmlcov/
+.benchmarks/
 
 # Jupyter
 .ipynb_checkpoints
@@ -151,3 +152,4 @@ target
 *_output.txt
 python/hsdpy/*.c
 #uv.lock
+make_test_logs/

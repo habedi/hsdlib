@@ -1,4 +1,18 @@
 ####################################################################################################
+## Default Target
+####################################################################################################
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help: ## Show this help message with all available targets and their descriptions
+	@echo "Hsdlib Makefile Help"
+	@echo "===================="
+	@grep -h -E '^[[:space:]]*[a-zA-Z0-9_-]+[[:space:]]*:[^=]*##' $(MAKEFILE_LIST) \
+	| sed 's/^[[:space:]]*//g' \
+	| sort \
+	| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+####################################################################################################
 ## Project Configuration
 ####################################################################################################
 SRC_DIR    := src
@@ -11,17 +25,9 @@ DOC_DIR    := docs
 CLEAN_EXCLUDE_DIRS := env .env venv .venv
 
 ####################################################################################################
-## Force CPU backend for testing (environment variable used for manual backend selection in tests)
-####################################################################################################
-# HSD_TEST_FORCE_BACKEND - Set this environment variable to force a specific backend
-# Examples: HSD_TEST_FORCE_BACKEND=AVX2 ./bin/test_runner
-
-AMD64_TARGETS   := AUTO SCALAR AVX AVX2 AVX512F AVX512BW AVX512DQ AVX512VPOPCNTDQ
-AARCH64_TARGETS := AUTO SCALAR NEON SVE
-
-####################################################################################################
 ## Platform Detection
 ####################################################################################################
+ARCH := $(shell uname -m)
 OS := $(shell uname -s)
 
 ifeq ($(OS),Linux)
@@ -47,6 +53,15 @@ STATIC_LIB           := $(LIB_DIR)/$(STATIC_LIB_FILENAME)
 TEST_RUNNER          := $(BIN_DIR)/$(EXE_FILENAME)
 
 ####################################################################################################
+## Backend Configuration for Testing
+####################################################################################################
+# HSD_TEST_FORCE_BACKEND - Set this environment variable to force a specific backend
+# Examples: HSD_TEST_FORCE_BACKEND=AVX2 ./bin/test_runner
+
+AMD64_TARGETS   := AUTO SCALAR AVX AVX2 AVX512F AVX512BW AVX512DQ AVX512VPOPCNTDQ
+AARCH64_TARGETS := AUTO SCALAR NEON SVE
+
+####################################################################################################
 ## Build Configuration
 ####################################################################################################
 CC   := $(shell command -v gcc 2>/dev/null || command -v clang 2>/dev/null)
@@ -62,11 +77,18 @@ BUILD_TYPE ?= debug
 ####################################################################################################
 CFLAGS_COMMON := -Wall -Wextra -pedantic -fPIC -Iinclude -march=native
 
+# Conditional flags based on architecture (AMD64 or AArch64)
+ifeq ($(ARCH),x86_64)
+CFLAGS_COMMON += -march=native -mfma
+else
+CFLAGS_COMMON += -march=native
+endif
+
 LIB_CFLAGS := $(CFLAGS_COMMON) -std=c11
 TEST_CFLAGS := $(CFLAGS_COMMON) -std=gnu2x -I$(TEST_DIR)
 
 ifeq ($(BUILD_TYPE),release)
-  LIB_CFLAGS += -O2 # or -O3
+  LIB_CFLAGS += -O2 # or -O3 (O2 is usually sufficient and more stable)
   TEST_CFLAGS += -O2 # or -O3
 else
   LIB_CFLAGS += -g -O0 -DHSD_DEBUG
@@ -91,48 +113,11 @@ ALL_OBJ_FILES := $(LIB_OBJ_FILES) $(TEST_OBJ_FILES)
 DEP_FILES     := $(ALL_OBJ_FILES:.o=.d)
 
 ####################################################################################################
-## Zig Configuration
-####################################################################################################
-ZIG := zig
-ZIG_BUILD_FLAGS :=
-ifeq ($(BUILD_TYPE),release)
-ZIG_BUILD_FLAGS += -Doptimize=ReleaseFast
-else
-ZIG_BUILD_FLAGS += -Doptimize=Debug
-endif
-ZIG_BUILD_FLAGS += -Dcpu=native
-
-ZIG_CMD     := $(ZIG) build $(ZIG_BUILD_FLAGS)
-ZIG_OUT_BIN := zig-out/bin
-ZIG_OUT_LIB := zig-out/lib
-
-####################################################################################################
-## Python Configuration
-####################################################################################################
-PYTHON_DIST_DIR := dist
-PYTHON_BUILD_DIR := build
-PYTHON_EGG_INFO := $(shell find . -maxdepth 2 -type d -name '*.egg-info') UNKNOWN.egg-info
-
-####################################################################################################
 ## Directory Creation Rules
 ####################################################################################################
 $(BIN_DIR) $(LIB_DIR) $(DOC_DIR) $(TARGET_DIR) $(LIB_OBJ_DIRS):
 	@echo "Creating directory $@..."
 	@mkdir -p $@
-
-####################################################################################################
-## Default Target
-####################################################################################################
-.DEFAULT_GOAL := help
-
-.PHONY: help
-help: ## Show this help message with all available targets and their descriptions
-	@echo "Hsdlib Makefile Help"
-	@echo "===================="
-	@grep -h -E '^[[:space:]]*[a-zA-Z0-9_-]+[[:space:]]*:[^=]*##' $(MAKEFILE_LIST) \
-	| sed 's/^[[:space:]]*//g' \
-	| sort \
-	| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 ####################################################################################################
 ## Primary Build Targets
@@ -191,7 +176,7 @@ ifeq ($(shell uname -m),x86_64)
 	  HSD_TEST_FORCE_BACKEND=$$t ./$(TEST_RUNNER); \
 	done
 else
-	@echo "Skipping AMD64 tests - not on an x86_64 machine."
+	@echo "Skipping AMD64 tests - not on an AMD64 machine."
 endif
 	@echo "=== AMD64 backend tests completed ==="
 
@@ -232,6 +217,22 @@ cov: clean $(TEST_RUNNER) ## Generate code coverage report for C tests
 	@echo "Coverage analysis complete. Reports in $(DOC_DIR)/coverage/"
 
 ####################################################################################################
+## Zig Configuration
+####################################################################################################
+ZIG := zig
+ZIG_BUILD_FLAGS :=
+ifeq ($(BUILD_TYPE),release)
+ZIG_BUILD_FLAGS += -Doptimize=ReleaseFast
+else
+ZIG_BUILD_FLAGS += -Doptimize=Debug
+endif
+ZIG_BUILD_FLAGS += -Dcpu=native
+
+ZIG_CMD     := $(ZIG) build $(ZIG_BUILD_FLAGS)
+ZIG_OUT_BIN := zig-out/bin
+ZIG_OUT_LIB := zig-out/lib
+
+####################################################################################################
 ## Zig Build Targets
 ####################################################################################################
 .PHONY: zig-build
@@ -257,6 +258,13 @@ zig-clean: ## Remove all Zig-specific build artifacts and caches
 	@echo "Cleaning Zig build artifacts..."
 	@rm -rf zig-cache .zig-cache zig-out
 	@echo "Zig clean complete"
+
+####################################################################################################
+## Python Configuration
+####################################################################################################
+PYTHON_DIST_DIR := dist
+PYTHON_BUILD_DIR := build
+PYTHON_EGG_INFO := $(shell find . -maxdepth 2 -type d -name '*.egg-info') UNKNOWN.egg-info
 
 ####################################################################################################
 ## Python Targets
@@ -353,25 +361,10 @@ doc: ## Generate documentation for the library using Doxygen
 	@echo "Documentation generated in $(DOC_DIR)/html"
 
 ####################################################################################################
-## Cleaning
-####################################################################################################
-.PHONY: clean
-clean: python-clean zig-clean ## Remove all build artifacts and temporary files
-	@echo "Cleaning build artifacts..."
-	@rm -rf $(BIN_DIR) $(TARGET_DIR) $(LIB_DIR)
-	$(eval EXCLUDE_PRUNE := $(foreach d,$(CLEAN_EXCLUDE_DIRS),-path ./$(d) -prune -o ))
-	@find . $(EXCLUDE_PRUNE) \( -name '*.gcda' -o -name '*.gcno' -o -name '*.gcov' -o -name '*.d' -o -name '*.o' -o -name '*.a' -o -name '*.so' \) -exec rm -f {} + 2>/dev/null || true
-	@rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex
-	@echo "Clean complete"
-
-####################################################################################################
 ## Benchmarks: build into bin/ with a single binary per benchmark
 ####################################################################################################
 BENCH_DIR    := benches/c
 BENCH_SRCS   := $(wildcard $(BENCH_DIR)/bench_*.c)
-
-# Define a variable to detect current architecture
-ARCH := $(shell uname -m)
 
 # Generate single binary names for each benchmark
 BENCH_BINS   := $(foreach src,$(BENCH_SRCS),$(BIN_DIR)/$(basename $(notdir $(src))))
@@ -381,7 +374,7 @@ BENCH_CFLAGS := $(filter-out -g -O0 -DHSD_DEBUG,$(CFLAGS_COMMON)) -O3 -DNDEBUG
 
 # Release mode library for benchmarks - ensure benchmarks use a release-mode library
 .PHONY: bench-lib
-bench-lib:
+bench-lib: ## Build the library in release mode for benchmarks
 	@echo "Building library in release mode for benchmarks..."
 	@$(MAKE) rebuild BUILD_TYPE=release
 
@@ -399,7 +392,7 @@ bench: ## Run benchmarks for detected CPU architecture
 	@case "$(ARCH)" in \
 		x86_64)  $(MAKE) bench-amd64 ;; \
 		aarch64) $(MAKE) bench-aarch64 ;; \
-		*) echo "Unsupported architecture: $(ARCH). Supported: x86_64, aarch64" ;; \
+		*) echo "Unsupported architecture: $(ARCH). Supported: AMD64, AArch64" ;; \
 	esac
 
 bench-amd64: $(BENCH_BINS) ## Run AMD64 backend benchmarks
@@ -425,7 +418,7 @@ bench-amd64: $(BENCH_BINS) ## Run AMD64 backend benchmarks
 			printf "|\n"; \
 		done \
 	else \
-		echo "Skipping AMD64 benchmarks: not on x86_64"; \
+		echo "Skipping AMD64 benchmarks: not on AMD64"; \
 	fi
 
 bench-aarch64: $(BENCH_BINS) ## Run AArch64 backend benchmarks
@@ -451,12 +444,24 @@ bench-aarch64: $(BENCH_BINS) ## Run AArch64 backend benchmarks
 			printf "|\n"; \
 		done \
 	else \
-		echo "Skipping AArch64 benchmarks: not on aarch64"; \
+		echo "Skipping AArch64 benchmarks: not on AArch64"; \
 	fi
 
 bench-clean: ## Remove benchmark binaries
 	@echo "Cleaning benchmark binaries..."
 	@rm -f $(BENCH_BINS)
+
+####################################################################################################
+## Cleaning
+####################################################################################################
+.PHONY: clean
+clean: python-clean zig-clean ## Remove all build artifacts and temporary files
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(BIN_DIR) $(TARGET_DIR) $(LIB_DIR)
+	$(eval EXCLUDE_PRUNE := $(foreach d,$(CLEAN_EXCLUDE_DIRS),-path ./$(d) -prune -o ))
+	@find . $(EXCLUDE_PRUNE) \( -name '*.gcda' -o -name '*.gcno' -o -name '*.gcov' -o -name '*.d' -o -name '*.o' -o -name '*.a' -o -name '*.so' \) -exec rm -f {} + 2>/dev/null || true
+	@rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex
+	@echo "Clean complete"
 
 # Include dependency files
 -include $(DEP_FILES)

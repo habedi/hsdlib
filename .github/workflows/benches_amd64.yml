@@ -1,0 +1,26 @@
+name: Run Benchmarks (AMD64)
+
+on:
+  workflow_dispatch:  # Allow manual runs
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make
+          make install-deps
+
+      - name: Run Benchmarks for AMD64
+        run: make bench-amd64
