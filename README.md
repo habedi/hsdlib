@@ -23,7 +23,7 @@ Hardware-accelerated distance metrics and similarity measures in C
 
 Hsdlib is a C library that provides hardware-accelerated implementations of popular distance metrics and
 similarity measures for high-dimensional data.
-It automatically picks the optimal implementation (scalar, AVX, AVX2, AVX512, NEON, SVE) at runtime based on the
+It automatically picks the optimal implementation (AVX, AVX2, AVX512, NEON, or SVE) at runtime based on the
 available CPU features.
 
 ### Features
@@ -32,7 +32,7 @@ available CPU features.
 - Support for popular distances and similarity measures
     - Squared Euclidean, Manhattan, Hamming distances
     - Dot-product, Cosine, Jaccard similarities
-- Support for AMD64/x86_64 (AMD/Intel) and AArch64 (ARM) CPUs
+- Support for AMD64 (AMD/Intel) and AArch64 (ARM) CPUs
 - Support for runtime dispatch with optional manual override
 - Compatible with C11 and later
 
