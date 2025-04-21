@@ -32,7 +32,7 @@ available CPU features.
 - Support for popular distances and similarity measures
     - Squared Euclidean, Manhattan, Hamming distances
     - Dot-product, Cosine, Jaccard similarities
-- Support for AMD64 (AMD/Intel) and AArch64 (ARM) CPUs
+- Support for AMD64 (AMD and Intel) and AArch64 (ARM) CPUs
 - Support for runtime dispatch with optional manual override
 - Compatible with C11 and later
 
@@ -73,7 +73,7 @@ To generate the documentation, use the `make doc` command and then open the `doc
 
 #### API Summary
 
-| Distance / Similarity Function         | Description                                                                                                           |
+| Distance or Similarity Function        | Description                                                                                                           |
 |:---------------------------------------|:----------------------------------------------------------------------------------------------------------------------|
 | `hsd_dist_sqeuclidean_f32(a, b, n, r)` | Compute squared Euclidean ($L2^2$) distance between two float vectors.                                                |
 | `hsd_dist_manhattan_f32(a, b, n, r)`   | Compute Manhattan ($L1$) distance between two float vectors.                                                          |
@@ -151,7 +151,7 @@ typedef enum {
     HSD_BACKEND_AUTO = 0, // Default (auto-selected at runtime).
     HSD_BACKEND_SCALAR, // Fallback scalar (portable) backend.
     
-    /* AMD64/X86_64 backends */
+    /* AMD64 backends */
     HSD_BACKEND_AVX, // Backend for AMD64 CPUs with AVX support
     HSD_BACKEND_AVX2, // Backend for AMD64 CPUs with AVX2 support
     HSD_BACKEND_AVX512F, // Backend for AMD64 CPUs with AVX512F support

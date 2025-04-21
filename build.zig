@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{}); // Defaults to .Debug if not specified
+    const optimize = b.standardOptimizeOption(.{});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -16,7 +16,21 @@ pub fn build(b: *std.Build) !void {
         try common_c_flags.append("-DHSD_DEBUG=1");
     }
 
-    // List of the C source files for the library
+    // Arch-specific flags
+    if (target.result.cpu.arch == .x86_64) {
+        try common_c_flags.appendSlice(&.{
+            "-mavx",
+            "-mavx2",
+            "-mfma",
+            "-mavx512f",
+            "-mavx512bw",
+            "-mavx512dq",
+            "-mavx512vpopcntdq",
+        });
+    } else if (target.result.cpu.arch == .aarch64) {
+        try common_c_flags.appendSlice(&.{ "-march=armv8-a+simd", "-msve-vector-bits=512" });
+    }
+
     const lib_source_files = &.{
         "src/utils.c",
         "src/distance/euclidean.c",
@@ -27,59 +41,52 @@ pub fn build(b: *std.Build) !void {
         "src/similarity/jaccard.c",
     };
 
-    // --- Build Static Library ---
+    // Static library
     const libhsd_static = b.addStaticLibrary(.{
         .name = "hsd",
         .target = target,
         .optimize = optimize,
     });
-
     libhsd_static.addIncludePath(b.path("include"));
     libhsd_static.addIncludePath(b.path("src"));
     libhsd_static.addCSourceFiles(.{
         .files = lib_source_files,
         .flags = common_c_flags.items,
     });
-
     libhsd_static.linkSystemLibrary("c");
     libhsd_static.linkSystemLibrary("m");
-
     b.installArtifact(libhsd_static);
     const static_step = b.step("static", "Build the static library");
     static_step.dependOn(&libhsd_static.step);
 
-    // --- Build Shared Library ---
+    // Shared library
     const libhsd_shared = b.addSharedLibrary(.{
         .name = "hsd",
         .target = target,
         .optimize = optimize,
     });
-
     libhsd_shared.addIncludePath(b.path("include"));
     libhsd_shared.addIncludePath(b.path("src"));
     libhsd_shared.addCSourceFiles(.{
         .files = lib_source_files,
         .flags = common_c_flags.items,
     });
-
     libhsd_shared.linkSystemLibrary("c");
     libhsd_shared.linkSystemLibrary("m");
-
     b.installArtifact(libhsd_shared);
     const shared_step = b.step("shared", "Build the shared library");
     shared_step.dependOn(&libhsd_shared.step);
 
-    const lib_step = b.step("lib", "Build static and shared libraries");
+    const lib_step = b.step("lib", "Build both libraries");
     lib_step.dependOn(static_step);
     lib_step.dependOn(shared_step);
 
-    // --- Build C Test Runner ---
+    // C test runner
     const test_runner = b.addExecutable(.{
         .name = "test_runner",
         .target = target,
         .optimize = optimize,
     });
-
     test_runner.addIncludePath(b.path("include"));
     test_runner.addIncludePath(b.path("tests"));
     test_runner.addCSourceFiles(.{
@@ -96,7 +103,6 @@ pub fn build(b: *std.Build) !void {
         },
         .flags = common_c_flags.items,
     });
-
     test_runner.linkLibrary(libhsd_static);
     test_runner.linkSystemLibrary("c");
     test_runner.linkSystemLibrary("m");

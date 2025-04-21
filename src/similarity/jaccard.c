@@ -148,8 +148,9 @@ __attribute__((target("avx2"))) static hsd_status_t jaccard_get_sums_avx2_intern
     return HSD_SUCCESS;
 }
 
-__attribute__((target("avx512f,avx512bw"))) static hsd_status_t jaccard_get_sums_avx512_internal(
-    const uint16_t *a, const uint16_t *b, size_t n, HSD_TripleSumU64 *sums) {
+__attribute__((target("avx512f,avx512bw,avx512dq"))) static hsd_status_t
+jaccard_get_sums_avx512_internal(const uint16_t *a, const uint16_t *b, size_t n,
+                                 HSD_TripleSumU64 *sums) {
     hsd_log("Enter jaccard_avx512_internal<u16> (n=%zu)", n);
     size_t i = 0;
     __m512i dot_acc = _mm512_setzero_si512();

@@ -482,5 +482,7 @@ clean: python-clean zig-clean ## Remove all build artifacts and temporary files
 	@rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex
 	@echo "Clean complete"
 
+all: rebuild test ## Rebuild the library and run tests
+
 # Include dependency files
 -include $(DEP_FILES)
