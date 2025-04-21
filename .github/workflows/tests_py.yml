@@ -34,6 +34,8 @@ jobs:
 
       - name: Run Tests for HsdPy
         run: |
+          uv sync
+          uv pip install -e ".[dev]"
           make python-install
           make python-tests
         continue-on-error: false

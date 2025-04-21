@@ -21,16 +21,20 @@ static hsd_status_t dot_scalar_internal(const float *a, const float *b, size_t n
     hsd_log("Enter dot_scalar_internal (n=%zu)", n);
     float dot_product = 0.0f;
     for (size_t i = 0; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         dot_product += a[i] * b[i];
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(dot_product) || isinf(dot_product)) {
         *result = dot_product;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = dot_product;
     return HSD_SUCCESS;
 }
@@ -52,16 +56,20 @@ __attribute__((target("avx"))) static hsd_status_t dot_avx_internal(const float 
     }
     float dot_product = hsd_internal_hsum_avx_f32(dot_acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         dot_product += a[i] * b[i];
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(dot_product) || isinf(dot_product)) {
         *result = dot_product;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = dot_product;
     return HSD_SUCCESS;
 }
@@ -79,16 +87,20 @@ __attribute__((target("avx2,fma"))) static hsd_status_t dot_avx2_internal(const 
     }
     float dot_product = hsd_internal_hsum_avx_f32(dot_acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         dot_product += a[i] * b[i];
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(dot_product) || isinf(dot_product)) {
         *result = dot_product;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = dot_product;
     return HSD_SUCCESS;
 }
@@ -106,16 +118,20 @@ __attribute__((target("avx512f"))) static hsd_status_t dot_avx512_internal(const
     }
     float dot_product = _mm512_reduce_add_ps(dot_acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         dot_product += a[i] * b[i];
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(dot_product) || isinf(dot_product)) {
         *result = dot_product;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = dot_product;
     return HSD_SUCCESS;
 }
@@ -139,16 +155,20 @@ static hsd_status_t dot_neon_internal(const float *a, const float *b, size_t n, 
     float dot_product = vget_lane_f32(tmp, 0);
 #endif
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         dot_product += a[i] * b[i];
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(dot_product) || isinf(dot_product)) {
         *result = dot_product;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = dot_product;
     return HSD_SUCCESS;
 }
@@ -158,32 +178,31 @@ __attribute__((target("+sve"))) static hsd_status_t dot_sve_internal(const float
                                                                      size_t n, float *result) {
     hsd_log("Enter dot_sve_internal (n=%zu)", n);
     int64_t i = 0;
-    int64_t n_sve = (int64_t)n;  // Use for loop comparison
+    int64_t n_sve = (int64_t)n;
     svbool_t pg;
     svfloat32_t dot_acc = svdup_n_f32(0.0f);
 
     while (i < n_sve) {
-        // FIX: Cast loop counter/bound to uint64_t for predicate generation
         pg = svwhilelt_b32((uint64_t)i, (uint64_t)n);
-
         svfloat32_t va = svld1_f32(pg, a + i);
         svfloat32_t vb = svld1_f32(pg, b + i);
-
-        // FIX: Use merging predication (_m) for multiply-accumulate
-        dot_acc = svmla_f32_m(pg, dot_acc, va, vb);  // dot_acc += va * vb
-
+        dot_acc = svmla_f32_m(pg, dot_acc, va, vb);
         i += svcntw();
     }
+
     float dot_product = svaddv_f32(svptrue_b32(), dot_acc);
 
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(dot_product) || isinf(dot_product)) {
         *result = dot_product;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
+
     *result = dot_product;
     return HSD_SUCCESS;
 }
-#endif  // __ARM_FEATURE_SVE
+#endif
 #endif
 
 static hsd_dot_f32_func_t resolve_dot_f32_internal(void);
@@ -202,7 +221,6 @@ hsd_status_t hsd_sim_dot_f32(const float *a, const float *b, size_t n, float *re
         *result = NAN;
         return HSD_ERR_NULL_PTR;
     }
-
     hsd_dot_f32_func_t func =
         (hsd_dot_f32_func_t)atomic_load_explicit(&hsd_dot_f32_ptr, memory_order_acquire);
     return func(a, b, n, result);
@@ -254,7 +272,6 @@ static hsd_dot_f32_func_t resolve_dot_f32_internal(void) {
                 break;
 #elif defined(__aarch64__) || defined(__arm__)
             case HSD_BACKEND_NEON:
-                // <<< FIX: Added check
                 if (hsd_cpu_has_neon()) {
                     chosen_func = dot_neon_internal;
                     reason = "NEON (Forced)";
@@ -263,16 +280,14 @@ static hsd_dot_f32_func_t resolve_dot_f32_internal(void) {
                 break;
 #if defined(__ARM_FEATURE_SVE)
             case HSD_BACKEND_SVE:
-                // <<< FIX: Added check
                 if (hsd_cpu_has_sve()) {
                     chosen_func = dot_sve_internal;
                     reason = "SVE (Forced)";
                     supported = true;
                 }
                 break;
-#endif  // SVE Feature defined
-#endif  // End architecture guards for forced non-scalar cases
-
+#endif
+#endif
             case HSD_BACKEND_SCALAR:
                 chosen_func = dot_scalar_internal;
                 reason = "Scalar (Forced)";
@@ -280,42 +295,42 @@ static hsd_dot_f32_func_t resolve_dot_f32_internal(void) {
                 break;
             default:
                 reason = "Scalar (Forced backend invalid)";
-                // chosen_func remains scalar (default)
-                break;  // supported remains false
+                break;
         }
         if (!supported && forced != HSD_BACKEND_SCALAR) {
             hsd_log("Warning: Forced backend %d not supported. Falling back to Scalar.", forced);
-            chosen_func = dot_scalar_internal;  // Ensure fallback
-            reason = "Scalar (Forced backend unsupported)";
+            chosen_func = dot_scalar_internal;
+            reason = "Scalar (Forced fallback)";
         }
-    } else {  // AUTO case
+    } else {
         reason = "Scalar (Auto)";
 #if defined(__x86_64__) || defined(_M_X64)
-        if (hsd_cpu_has_avx512f())
-            chosen_func = dot_avx512_internal, reason = "AVX512F (Auto)";
-        else if (hsd_cpu_has_avx2())
-            chosen_func = dot_avx2_internal, reason = "AVX2 (Auto)";
-        else if (hsd_cpu_has_avx())
-            chosen_func = dot_avx_internal, reason = "AVX (Auto)";
+        if (hsd_cpu_has_avx512f()) {
+            chosen_func = dot_avx512_internal;
+            reason = "AVX512F (Auto)";
+        } else if (hsd_cpu_has_avx2()) {
+            chosen_func = dot_avx2_internal;
+            reason = "AVX2 (Auto)";
+        } else if (hsd_cpu_has_avx()) {
+            chosen_func = dot_avx_internal;
+            reason = "AVX (Auto)";
+        }
 #elif defined(__aarch64__) || defined(__arm__)
-        // <<< FIX: Check SVE first, then NEON
 #if defined(__ARM_FEATURE_SVE)
         if (hsd_cpu_has_sve()) {
             chosen_func = dot_sve_internal;
             reason = "SVE (Auto)";
-        } else if (hsd_cpu_has_neon()) {  // Check NEON only if SVE not available/used
+        } else if (hsd_cpu_has_neon()) {
             chosen_func = dot_neon_internal;
             reason = "NEON (Auto)";
         }
-        // If neither SVE nor NEON, chosen_func remains scalar (default)
-#else   // SVE not compiled, just check NEON
+#else
         if (hsd_cpu_has_neon()) {
             chosen_func = dot_neon_internal;
             reason = "NEON (Auto)";
         }
-        // If no NEON, chosen_func remains scalar (default)
-#endif  // SVE Feature defined
-#endif  // End architecture AUTO guards
+#endif
+#endif
     }
 
     hsd_log("Dispatch: Resolved Dot F32 to: %s", reason);

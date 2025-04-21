@@ -42,16 +42,16 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["hsdpy"]
-package-dir = { "" = "python" }
+package-dir = { "" = "bindings/python" }
 
 [tool.setuptools.package-data]
 hsdpy = ["*.so", "*.dylib", "*.dll"]
 
 [tool.pyright]
-include = ["python/hsdpy", "python/tests"]
+include = ["bindings/python/hsdpy", "bindings/python/tests"]
 venvPath = "."
 venv = ".venv"
-strict = ["python/hsdpy/*.py"]
+strict = ["bindings/python/hsdpy/*.py"]
 
 [tool.ruff.lint]
 select = ["C4", "E", "F", "I", "PERF", "UP"]

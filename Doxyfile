@@ -9,7 +9,7 @@ CREATE_SUBDIRS     = NO
 # Input settings
 #---------------------------------------------------------------------------
 INPUT              = .
-FILE_PATTERNS      = *.c *.h *.cpp *.hpp
+FILE_PATTERNS      = *.c *.h
 RECURSIVE          = YES
 EXTRACT_ALL        = YES
 

@@ -1,6 +1,12 @@
 #ifndef HSDLIB_H
 #define HSDLIB_H
 
+#ifdef HSDLIB_NO_CHECKS
+#define HSD_ALLOW_FP_CHECKS 0
+#else
+#define HSD_ALLOW_FP_CHECKS 1
+#endif
+
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -9,7 +15,7 @@
 #if defined(__GNUC__) || defined(__clang__)
 #define HSD_ASM __asm__ volatile
 #else
-#define HSD_ASM asm volatile  // fallback for other compilers
+#define HSD_ASM asm volatile
 #endif
 
 #if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
@@ -102,7 +108,6 @@ static inline float hsd_internal_hsum_avx_f32(__m256 acc) {
     hsum_128 = _mm_hadd_ps(hsum_128, hsum_128);
     return _mm_cvtss_f32(hsum_128);
 }
-
 #endif
 
 #ifdef __cplusplus

@@ -1,3 +1,13 @@
+/*
+ * If HSDLIB_NO_CHECKS is defined, all isnan/isinf tests
+ * get compiled out for maximum speed.
+ */
+#ifdef HSDLIB_NO_CHECKS
+#define HSD_ALLOW_FP_CHECKS 0
+#else
+#define HSD_ALLOW_FP_CHECKS 1
+#endif
+
 #include <float.h>
 #include <math.h>
 #include <stdatomic.h>
@@ -23,16 +33,20 @@ static hsd_status_t manhattan_scalar_internal(const float *a, const float *b, si
     hsd_log("Enter manhattan_scalar_internal (n=%zu)", n);
     float sum = 0.0f;
     for (size_t i = 0; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         sum += fabsf(a[i] - b[i]);
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum) || isinf(sum)) {
         *result = sum;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum;
     return HSD_SUCCESS;
 }
@@ -54,16 +68,20 @@ __attribute__((target("avx"))) static hsd_status_t manhattan_avx_internal(const 
     }
     float sum = hsd_internal_hsum_avx_f32(acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         sum += fabsf(a[i] - b[i]);
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum) || isinf(sum)) {
         *result = sum;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum;
     return HSD_SUCCESS;
 }
@@ -85,16 +103,20 @@ __attribute__((target("avx2"))) static hsd_status_t manhattan_avx2_internal(cons
     }
     float sum = hsd_internal_hsum_avx_f32(acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         sum += fabsf(a[i] - b[i]);
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum) || isinf(sum)) {
         *result = sum;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum;
     return HSD_SUCCESS;
 }
@@ -114,16 +136,20 @@ __attribute__((target("avx512f"))) static hsd_status_t manhattan_avx512_internal
     }
     float sum = _mm512_reduce_add_ps(acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         sum += fabsf(a[i] - b[i]);
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum) || isinf(sum)) {
         *result = sum;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum;
     return HSD_SUCCESS;
 }
@@ -149,16 +175,20 @@ static hsd_status_t manhattan_neon_internal(const float *a, const float *b, size
     float sum = vget_lane_f32(p, 0);
 #endif
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         sum += fabsf(a[i] - b[i]);
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum) || isinf(sum)) {
         *result = sum;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum;
     return HSD_SUCCESS;
 }
@@ -169,35 +199,31 @@ __attribute__((target("+sve"))) static hsd_status_t manhattan_sve_internal(const
                                                                            float *result) {
     hsd_log("Enter manhattan_sve_internal (n=%zu)", n);
     int64_t i = 0;
-    int64_t n_sve = (int64_t)n;  // Use for loop comparison
+    int64_t n_sve = (int64_t)n;
     svbool_t pg;
     svfloat32_t acc = svdup_n_f32(0.0f);
 
     while (i < n_sve) {
-        // FIX: Cast loop counter/bound to uint64_t for predicate generation
         pg = svwhilelt_b32((uint64_t)i, (uint64_t)n);
-
         svfloat32_t va = svld1_f32(pg, a + i);
         svfloat32_t vb = svld1_f32(pg, b + i);
-        svfloat32_t diff = svsub_f32_z(pg, va, vb);    // Zeroing diff is ok
-        svfloat32_t abs_diff = svabs_f32_z(pg, diff);  // Zeroing abs is ok
-
-        // FIX: Use merging predication for accumulation
-        acc = svadd_f32_m(pg, acc, abs_diff);
-
-        i += svcntw();  // Increment by number of float elements processed
+        svfloat32_t diff = svsub_f32_z(pg, va, vb);
+        svfloat32_t ad = svabs_f32_z(pg, diff);
+        acc = svadd_f32_m(pg, acc, ad);
+        i += svcntw();
     }
 
     float sum = svaddv_f32(svptrue_b32(), acc);
-
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum) || isinf(sum)) {
         *result = sum;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum;
     return HSD_SUCCESS;
 }
-#endif  // __ARM_FEATURE_SVE
+#endif
 #endif
 
 static hsd_manhattan_f32_func_t resolve_manhattan_f32_internal(void);
@@ -233,100 +259,69 @@ static hsd_status_t manhattan_f32_resolver_trampoline(const float *a, const floa
 
 static hsd_manhattan_f32_func_t resolve_manhattan_f32_internal(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
-    hsd_manhattan_f32_func_t chosen_func =
-        manhattan_scalar_internal;  // Use different name to avoid confusion
+    hsd_manhattan_f32_func_t chosen = manhattan_scalar_internal;
     const char *reason = "Scalar (Default)";
 
     if (forced != HSD_BACKEND_AUTO) {
         hsd_log("Manhattan F32: Forced backend %d", forced);
-        bool supported = false;  // Changed 'ok' to 'supported' for clarity
-        switch (forced) {
-#if defined(__x86_64__) || defined(_M_X64)  // <<< FIX: Guard x86 cases
-            case HSD_BACKEND_AVX512F:
-                if (hsd_cpu_has_avx512f()) {
-                    chosen_func = manhattan_avx512_internal;
-                    reason = "AVX512F (Forced)";
-                    supported = true;
-                }
-                break;
-            case HSD_BACKEND_AVX2:
-                if (hsd_cpu_has_avx2()) {
-                    chosen_func = manhattan_avx2_internal;
-                    reason = "AVX2 (Forced)";
-                    supported = true;
-                } else if (hsd_cpu_has_avx()) {
-                    chosen_func = manhattan_avx_internal;
-                    reason = "AVX (fallback from Forced AVX2)";
-                    supported = true;
-                }
-                break;
-            case HSD_BACKEND_AVX:
-                if (hsd_cpu_has_avx()) {
-                    chosen_func = manhattan_avx_internal;
-                    reason = "AVX (Forced)";
-                    supported = true;
-                }
-                break;
-#endif  // defined(__x86_64__) || defined(_M_X64)
-
-#if defined(__aarch64__) || defined(__arm__)  // <<< FIX: Guard ARM cases
-#if defined(__ARM_FEATURE_SVE)
-            case HSD_BACKEND_SVE:
-                if (hsd_cpu_has_sve()) {
-                    chosen_func = manhattan_sve_internal;
-                    reason = "SVE (Forced)";
-                    supported = true;
-                }
-                break;
-#endif  // SVE
-            case HSD_BACKEND_NEON:
-                if (hsd_cpu_has_neon()) {
-                    chosen_func = manhattan_neon_internal;
-                    reason = "NEON (Forced)";
-                    supported = true;
-                }
-                break;
-#endif  // defined(__aarch64__) || defined(__arm__)
-
-            case HSD_BACKEND_SCALAR:  // Always available
-                chosen_func = manhattan_scalar_internal;
-                reason = "Scalar (Forced)";
-                supported = true;
-                break;
-            default:  // Unknown forced backend
-                reason = "Scalar (Forced backend invalid)";
-                chosen_func = manhattan_scalar_internal;  // Fallback to scalar
-                supported = false;
-                break;
+        bool supported = false;
+#if defined(__x86_64__) || defined(_M_X64)
+        if (forced == HSD_BACKEND_AVX512F && hsd_cpu_has_avx512f()) {
+            chosen = manhattan_avx512_internal;
+            reason = "AVX512F (Forced)";
+            supported = true;
+        } else if (forced == HSD_BACKEND_AVX2 && hsd_cpu_has_avx2()) {
+            chosen = manhattan_avx2_internal;
+            reason = "AVX2 (Forced)";
+            supported = true;
+        } else if (forced == HSD_BACKEND_AVX && hsd_cpu_has_avx()) {
+            chosen = manhattan_avx_internal;
+            reason = "AVX (Forced)";
+            supported = true;
         }
-        // Fallback if specifically requested backend is not supported by CPU
-        if (!supported && forced != HSD_BACKEND_SCALAR) {
-            hsd_log("Forced %d not supported; falling back to Scalar", forced);
-            chosen_func = manhattan_scalar_internal;  // Ensure fallback
+#elif defined(__aarch64__) || defined(__arm__)
+        if (forced == HSD_BACKEND_SVE && hsd_cpu_has_sve()) {
+            chosen = manhattan_sve_internal;
+            reason = "SVE (Forced)";
+            supported = true;
+        } else if (forced == HSD_BACKEND_NEON && hsd_cpu_has_neon()) {
+            chosen = manhattan_neon_internal;
+            reason = "NEON (Forced)";
+            supported = true;
+        }
+#endif
+        else if (forced == HSD_BACKEND_SCALAR) {
+            chosen = manhattan_scalar_internal;
+            reason = "Scalar (Forced)";
+            supported = true;
+        }
+
+        if (!supported) {
+            hsd_log("Forced backend %d not supported; falling back", forced);
+            chosen = manhattan_scalar_internal;
             reason = "Scalar (Fallback)";
         }
-
-    } else {  // AUTO backend selection
+    } else {
         reason = "Scalar (Auto)";
-#if defined(__x86_64__) || defined(_M_X64)  // <<< FIX: Guard auto x86 selection
+#if defined(__x86_64__) || defined(_M_X64)
         if (hsd_cpu_has_avx512f())
-            chosen_func = manhattan_avx512_internal, reason = "AVX512F (Auto)";
+            chosen = manhattan_avx512_internal, reason = "AVX512F (Auto)";
         else if (hsd_cpu_has_avx2())
-            chosen_func = manhattan_avx2_internal, reason = "AVX2 (Auto)";
+            chosen = manhattan_avx2_internal, reason = "AVX2 (Auto)";
         else if (hsd_cpu_has_avx())
-            chosen_func = manhattan_avx_internal, reason = "AVX (Auto)";
-#elif defined(__aarch64__) || defined(__arm__)  // <<< FIX: Guard auto ARM selection
+            chosen = manhattan_avx_internal, reason = "AVX (Auto)";
+#elif defined(__aarch64__) || defined(__arm__)
 #if defined(__ARM_FEATURE_SVE)
         if (hsd_cpu_has_sve())
-            chosen_func = manhattan_sve_internal, reason = "SVE (Auto)";
+            chosen = manhattan_sve_internal, reason = "SVE (Auto)";
         else if (hsd_cpu_has_neon())
-            chosen_func = manhattan_neon_internal, reason = "NEON (Auto)";
-#else   // No SVE check needed if SVE feature not compiled
-        if (hsd_cpu_has_neon()) chosen_func = manhattan_neon_internal, reason = "NEON (Auto)";
-#endif  // SVE
-#endif  // Architecture check
+            chosen = manhattan_neon_internal, reason = "NEON (Auto)";
+#else
+        if (hsd_cpu_has_neon()) chosen = manhattan_neon_internal, reason = "NEON (Auto)";
+#endif
+#endif
     }
 
     hsd_log("Dispatch: Resolved Manhattan F32 to: %s", reason);
-    return chosen_func;
+    return chosen;
 }

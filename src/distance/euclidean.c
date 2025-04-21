@@ -22,17 +22,21 @@ static hsd_status_t sqeuclid_scalar_internal(const float *a, const float *b, siz
     hsd_log("Enter sqeuclid_scalar_internal (n=%zu)", n);
     float sum_sq_diff = 0.0f;
     for (size_t i = 0; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         float d = a[i] - b[i];
         sum_sq_diff += d * d;
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
         *result = sum_sq_diff;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum_sq_diff;
     return HSD_SUCCESS;
 }
@@ -56,17 +60,21 @@ __attribute__((target("avx"))) static hsd_status_t sqeuclid_avx_internal(const f
     }
     float sum_sq_diff = hsd_internal_hsum_avx_f32(acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         float d = a[i] - b[i];
         sum_sq_diff += d * d;
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
         *result = sum_sq_diff;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum_sq_diff;
     return HSD_SUCCESS;
 }
@@ -86,17 +94,21 @@ __attribute__((target("avx2,fma"))) static hsd_status_t sqeuclid_avx2_internal(c
     }
     float sum_sq_diff = hsd_internal_hsum_avx_f32(acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         float d = a[i] - b[i];
         sum_sq_diff += d * d;
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
         *result = sum_sq_diff;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum_sq_diff;
     return HSD_SUCCESS;
 }
@@ -115,17 +127,21 @@ __attribute__((target("avx512f"))) static hsd_status_t sqeuclid_avx512_internal(
     }
     float sum_sq_diff = _mm512_reduce_add_ps(acc);
     for (; i < n; ++i) {
+#if HSD_ALLOW_FP_CHECKS
         if (isnan(a[i]) || isnan(b[i]) || isinf(a[i]) || isinf(b[i])) {
             *result = NAN;
             return HSD_ERR_INVALID_INPUT;
         }
+#endif
         float d = a[i] - b[i];
         sum_sq_diff += d * d;
     }
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(sum_sq_diff) || isinf(sum_sq_diff)) {
         *result = sum_sq_diff;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     *result = sum_sq_diff;
     return HSD_SUCCESS;
 }

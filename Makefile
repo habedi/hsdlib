@@ -270,7 +270,7 @@ PYTHON_EGG_INFO := $(shell find . -maxdepth 2 -type d -name '*.egg-info') UNKNOW
 ## Python Targets
 ####################################################################################################
 .PHONY: python-build
-python-build: zig-build ## Build Python wheel package for distribution (depends on Zig build now)
+python-build: zig-build ## Build Python wheel package for distribution
 	@echo "Building Python wheel..."
 	@if [ ! -f "$(SHARED_LIB)" ]; then \
 	   echo "ERROR: Shared library $(SHARED_LIB) not found!"; \
@@ -279,8 +279,8 @@ python-build: zig-build ## Build Python wheel package for distribution (depends 
 	fi
 	@echo "Using shared lib: $(SHARED_LIB)"
 	@echo "Copying shared lib into Python package..."
-	@mkdir -p python/hsdpy
-	@cp "$(LIB_DIR)/$(SHARED_LIB_FILENAME)" python/hsdpy/
+	@mkdir -p bindings/python/hsdpy
+	@cp "$(LIB_DIR)/$(SHARED_LIB_FILENAME)" bindings/python/hsdpy/
 	@python -m build --wheel --outdir $(PYTHON_DIST_DIR)
 	@echo "Python wheel build complete"
 
@@ -296,10 +296,10 @@ python-install: python-build ## Install the Python wheel package locally (needs 
 	@echo "Python wheel installed successfully"
 
 .PHONY: python-test
-python-test: python-build ## Run Python test suite with code coverage (ensures library is built and copied)
+python-test: python-build ## Run Python test suite with code coverage
 	@echo "Running Python tests..."
 	@command -v uv >/dev/null 2>&1 || { echo "Error: 'uv' command not found. Please install with 'pip install -U uv'."; exit 1; }
-	@uv run pytest python/tests --tb=short --disable-warnings --cov=python/hsdpy --cov-branch --cov-report=xml
+	@uv run pytest bindings/python/tests --tb=short --disable-warnings --cov=bindings/python/hsdpy --cov-branch --cov-report=xml
 	@echo "Python tests complete"
 
 .PHONY: python-clean
@@ -307,7 +307,7 @@ python-clean: ## Clean Python-specific build artifacts and caches
 	@echo "Cleaning Python build artifacts..."
 	@rm -rf $(PYTHON_DIST_DIR) $(PYTHON_BUILD_DIR) $(PYTHON_EGG_INFO) site_packages*
 	@find python -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-	@find python/hsdpy -maxdepth 1 \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -delete 2>/dev/null || true
+	@find bindings/python/hsdpy -maxdepth 1 \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -delete 2>/dev/null || true
 	@rm -f '.coverage' 'coverage.xml'
 	@echo "Python clean complete"
 
@@ -372,7 +372,7 @@ BENCH_BINS   := $(foreach src,$(BENCH_SRCS),$(BIN_DIR)/$(basename $(notdir $(src
 # Benchmark-specific flags: optimize and disable debugging
 BENCH_CFLAGS := $(filter-out -g -O0 -DHSD_DEBUG,$(CFLAGS_COMMON)) -O3 -DNDEBUG
 
-# Release mode library for benchmarks - ensure benchmarks use a release-mode library
+# Static library for benchmarks (built in release mode for performance)
 .PHONY: bench-lib
 bench-lib: ## Build the library in release mode for benchmarks
 	@echo "Building library in release mode for benchmarks..."
