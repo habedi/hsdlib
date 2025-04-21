@@ -1,0 +1,33 @@
+name: Publish C API Documentation
+
+on:
+  workflow_dispatch:  # Allow manual runs
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make
+          make install-deps
+
+      - name: Generate Documentation
+        run: make doc
+
+      - name: Deploy Documentation to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        #if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs

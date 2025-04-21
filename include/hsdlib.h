@@ -63,7 +63,7 @@ hsd_status_t hsd_sim_cosine_f32(const float *a, const float *b, size_t n, float 
 hsd_status_t hsd_sim_jaccard_u16(const uint16_t *a, const uint16_t *b, size_t n, float *result);
 
 const char *hsd_get_backend(void);
-int hsd_has_avx512(void);
+bool hsd_has_avx512(void);
 hsd_fp_status_t hsd_get_fp_mode_status(void);
 
 hsd_status_t hsd_set_manual_backend(HSD_Backend backend);

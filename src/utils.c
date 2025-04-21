@@ -196,11 +196,11 @@ const char *hsd_get_backend(void) {
     }
 }
 
-int hsd_has_avx512(void) {
+bool hsd_has_avx512(void) {
 #if defined(__x86_64__) || defined(_M_X64)
     return hsd_cpu_has_avx512f();
 #else
-    return 0;
+    return false;
 #endif
 }
 

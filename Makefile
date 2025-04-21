@@ -23,6 +23,7 @@ LIB_DIR    := lib
 TARGET_DIR := obj
 DOC_DIR    := docs
 CLEAN_EXCLUDE_DIRS := env .env venv .venv
+BINDINGS_DIR := bindings
 
 ####################################################################################################
 ## Platform Detection
@@ -245,7 +246,7 @@ zig-build: ## Build both static and shared libraries using Zig
 	@echo "Zig library builds complete"
 
 .PHONY: zig-test
-zig-test: | $(BIN_DIR) ## Build and run tests using Zig
+zig-test: | $(BIN_DIR) ## Build and run C tests using Zig
 	@echo "Building tests via Zig..."
 	@$(ZIG_CMD)
 	@cp "$(ZIG_OUT_BIN)/test_runner" "$(TEST_RUNNER)"
@@ -264,7 +265,7 @@ zig-clean: ## Remove all Zig-specific build artifacts and caches
 ####################################################################################################
 PYTHON_DIST_DIR := dist
 PYTHON_BUILD_DIR := build
-PYTHON_EGG_INFO := $(shell find . -maxdepth 2 -type d -name '*.egg-info') UNKNOWN.egg-info
+PYTHON_EGG_INFO := $(shell find . -maxdepth 3 -type d -name '*.egg-info') UNKNOWN.egg-info
 
 ####################################################################################################
 ## Python Targets
@@ -279,8 +280,8 @@ python-build: zig-build ## Build Python wheel package for distribution
 	fi
 	@echo "Using shared lib: $(SHARED_LIB)"
 	@echo "Copying shared lib into Python package..."
-	@mkdir -p bindings/python/hsdpy
-	@cp "$(LIB_DIR)/$(SHARED_LIB_FILENAME)" bindings/python/hsdpy/
+	@mkdir -p $(BINDINGS_DIR)/python/hsdpy
+	@cp "$(LIB_DIR)/$(SHARED_LIB_FILENAME)" $(BINDINGS_DIR)/python/hsdpy/
 	@python -m build --wheel --outdir $(PYTHON_DIST_DIR)
 	@echo "Python wheel build complete"
 
@@ -296,10 +297,10 @@ python-install: python-build ## Install the Python wheel package locally (needs 
 	@echo "Python wheel installed successfully"
 
 .PHONY: python-test
-python-test: python-build ## Run Python test suite with code coverage
+python-test: python-build ## Run Python test suite (with code coverage)
 	@echo "Running Python tests..."
 	@command -v uv >/dev/null 2>&1 || { echo "Error: 'uv' command not found. Please install with 'pip install -U uv'."; exit 1; }
-	@uv run pytest bindings/python/tests --tb=short --disable-warnings --cov=bindings/python/hsdpy --cov-branch --cov-report=xml
+	@uv run pytest $(BINDINGS_DIR)/python/tests --tb=short --disable-warnings --cov=$(BINDINGS_DIR)/python/hsdpy --cov-branch --cov-report=xml
 	@echo "Python tests complete"
 
 .PHONY: python-clean
@@ -307,7 +308,7 @@ python-clean: ## Clean Python-specific build artifacts and caches
 	@echo "Cleaning Python build artifacts..."
 	@rm -rf $(PYTHON_DIST_DIR) $(PYTHON_BUILD_DIR) $(PYTHON_EGG_INFO) site_packages*
 	@find python -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-	@find bindings/python/hsdpy -maxdepth 1 \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -delete 2>/dev/null || true
+	@find $(BINDINGS_DIR)/python/hsdpy -maxdepth 1 \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -delete 2>/dev/null || true
 	@rm -f '.coverage' 'coverage.xml'
 	@echo "Python clean complete"
 
@@ -359,6 +360,24 @@ doc: ## Generate documentation for the library using Doxygen
 	@test -f Doxyfile || { echo "Error: Doxyfile not found."; exit 1; }
 	@doxygen Doxyfile
 	@echo "Documentation generated in $(DOC_DIR)/html"
+
+####################################################################################################
+## Example Target
+####################################################################################################
+EXAMPLE_SRC := examples/c/hsdlib_example.c
+EXAMPLE_BIN := $(BIN_DIR)/hsdlib_example
+
+.PHONY: example
+example: ## Build and run example(s)
+	@echo "Building example in release mode..."
+	@$(MAKE) $(EXAMPLE_BIN) BUILD_TYPE=release
+	@echo "Running Hsdlib examples..."
+	@$(EXAMPLE_BIN)
+	@echo "Example execution complete"
+
+$(EXAMPLE_BIN): $(EXAMPLE_SRC) $(STATIC_LIB) | $(BIN_DIR)
+	@echo "Building example: $@"
+	@$(CC) $(LIB_CFLAGS) -o $@ $< $(STATIC_LIB) $(LDFLAGS) $(LIBS) -std=gnu2x -fsanitize=undefined
 
 ####################################################################################################
 ## Benchmarks: build into bin/ with a single binary per benchmark
