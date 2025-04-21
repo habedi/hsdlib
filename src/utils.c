@@ -138,8 +138,6 @@ HSD_Backend hsd_get_current_backend_choice(void) {
 const char *hsd_get_backend(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
     if (forced != HSD_BACKEND_AUTO) {
-        // This switch likely doesn't need AVX512DQ explicitly,
-        // as BW/VPOPCNTDQ imply DQ, but keeping it simple for now.
         switch (forced) {
             case HSD_BACKEND_SCALAR:
                 return "Forced Scalar";
@@ -151,7 +149,8 @@ const char *hsd_get_backend(void) {
                 return "Forced AVX512F";
             case HSD_BACKEND_AVX512BW:
                 return "Forced AVX512BW";
-            // Maybe add DQ case if needed for forcing?
+            case HSD_BACKEND_AVX512DQ:
+                return "Forced AVX512DQ";
             case HSD_BACKEND_AVX512VPOPCNTDQ:
                 return "Forced AVX512VPOPCNTDQ";
             case HSD_BACKEND_NEON:
@@ -163,12 +162,11 @@ const char *hsd_get_backend(void) {
         }
     } else {
 #if defined(__x86_64__) || defined(_M_X64)
-        // Order matters - check most specific first
-        if (hsd_cpu_has_avx512vpopcntdq())  // Implies F, BW, DQ
+        if (hsd_cpu_has_avx512vpopcntdq())
             return "Auto (AVX512VPOPCNTDQ Capable)";
-        // else if (hsd_cpu_has_avx512dq()) // Could add DQ check here if needed
-        //     return "Auto (AVX512DQ Capable)";
-        else if (hsd_cpu_has_avx512bw())  // Implies F
+        else if (hsd_cpu_has_avx512dq())
+            return "Auto (AVX512DQ Capable)";
+        else if (hsd_cpu_has_avx512bw())
             return "Auto (AVX512BW Capable)";
         else if (hsd_cpu_has_avx512f())
             return "Auto (AVX512F Capable)";
@@ -182,12 +180,16 @@ const char *hsd_get_backend(void) {
 #if defined(__ARM_FEATURE_SVE)
         if (hsd_cpu_has_sve())
             return "Auto (SVE Capable)";
-        else
-#endif
-            if (hsd_cpu_has_neon())
+        else if (hsd_cpu_has_neon())
             return "Auto (NEON Capable)";
         else
             return "Auto (Scalar)";
+#else
+        if (hsd_cpu_has_neon())
+            return "Auto (NEON Capable)";
+        else
+            return "Auto (Scalar)";
+#endif
 #else
         return "Auto (Scalar)";
 #endif

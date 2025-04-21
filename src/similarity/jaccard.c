@@ -386,7 +386,8 @@ static hsd_jaccard_get_sums_func_t resolve_jaccard_get_sums_internal(void) {
         hsd_log("Jaccard U16: Forced backend %d", forced);
         bool supported = false;
 #if defined(__x86_64__) || defined(_M_X64)
-        if (forced == HSD_BACKEND_AVX512BW && hsd_cpu_has_avx512f() && hsd_cpu_has_avx512bw() && hsd_cpu_has_avx512dq()) {
+        if (forced == HSD_BACKEND_AVX512BW && hsd_cpu_has_avx512f() && hsd_cpu_has_avx512bw() &&
+            hsd_cpu_has_avx512dq()) {
             chosen_func = jaccard_get_sums_avx512_internal;
             reason = "AVX512 F+BW+DQ (Forced)";
             supported = true;

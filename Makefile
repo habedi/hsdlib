@@ -16,8 +16,8 @@ CLEAN_EXCLUDE_DIRS := env .env venv .venv
 # HSD_TEST_FORCE_BACKEND - Set this environment variable to force a specific backend
 # Examples: HSD_TEST_FORCE_BACKEND=AVX2 ./bin/test_runner
 
-AMD64_TARGETS   := AUTO SCALAR AVX AVX2 AVX512F AVX512BW AVX512VPOPCNTDQ
-AARCH64_TARGETS := SVE #AUTO SCALAR NEON SVE
+AMD64_TARGETS   := AUTO SCALAR AVX AVX2 AVX512F AVX512BW AVX512DQ AVX512VPOPCNTDQ
+AARCH64_TARGETS := AUTO SCALAR NEON SVE
 
 ####################################################################################################
 ## Platform Detection
@@ -363,6 +363,100 @@ clean: python-clean zig-clean ## Remove all build artifacts and temporary files
 	@find . $(EXCLUDE_PRUNE) \( -name '*.gcda' -o -name '*.gcno' -o -name '*.gcov' -o -name '*.d' -o -name '*.o' -o -name '*.a' -o -name '*.so' \) -exec rm -f {} + 2>/dev/null || true
 	@rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex
 	@echo "Clean complete"
+
+####################################################################################################
+## Benchmarks: build into bin/ with a single binary per benchmark
+####################################################################################################
+BENCH_DIR    := benches/c
+BENCH_SRCS   := $(wildcard $(BENCH_DIR)/bench_*.c)
+
+# Define a variable to detect current architecture
+ARCH := $(shell uname -m)
+
+# Generate single binary names for each benchmark
+BENCH_BINS   := $(foreach src,$(BENCH_SRCS),$(BIN_DIR)/$(basename $(notdir $(src))))
+
+# Benchmark-specific flags: optimize and disable debugging
+BENCH_CFLAGS := $(filter-out -g -O0 -DHSD_DEBUG,$(CFLAGS_COMMON)) -O3 -DNDEBUG
+
+# Release mode library for benchmarks - ensure benchmarks use a release-mode library
+.PHONY: bench-lib
+bench-lib:
+	@echo "Building library in release mode for benchmarks..."
+	@$(MAKE) rebuild BUILD_TYPE=release
+
+# Build a single binary for each benchmark
+$(BIN_DIR)/bench_%: $(BENCH_DIR)/bench_%.c bench-lib | $(BIN_DIR)
+	@echo "Building $@"
+	@$(CC) $(BENCH_CFLAGS) \
+		-D_POSIX_C_SOURCE=200809L \
+		-std=c11 -Iinclude -I$(BENCH_DIR) \
+		-o $@ $< $(STATIC_LIB) -lm
+
+.PHONY: bench bench-amd64 bench-aarch64 bench-clean
+
+bench: ## Run benchmarks for detected CPU architecture
+	@case "$(ARCH)" in \
+		x86_64)  $(MAKE) bench-amd64 ;; \
+		aarch64) $(MAKE) bench-aarch64 ;; \
+		*) echo "Unsupported architecture: $(ARCH). Supported: x86_64, aarch64" ;; \
+	esac
+
+bench-amd64: $(BENCH_BINS) ## Run AMD64 backend benchmarks
+	@echo
+	@if [ "$(ARCH)" = "x86_64" ]; then \
+		echo "=== AMD64 Benchmarks (Total time in sec) ==="; \
+		printf "| Backend "; \
+		for b in $(sort $(foreach src,$(BENCH_SRCS),$(basename $(notdir $(src))))); do \
+			printf "| %s " $$b; \
+		done; \
+		printf "|\n"; \
+		printf "|---"; \
+		for b in $(sort $(foreach src,$(BENCH_SRCS),$(basename $(notdir $(src))))); do \
+			printf "|---"; \
+		done; \
+		printf "|\n"; \
+		for t in $(AMD64_TARGETS); do \
+			printf "| %s " $$t; \
+			for b in $(sort $(foreach src,$(BENCH_SRCS),$(basename $(notdir $(src))))); do \
+				tt=$$(HSD_BENCH_FORCE_BACKEND=$$t $(BIN_DIR)/$$b 2>/dev/null | awk '/Total time:/ {print $$3}'); \
+				printf "| %s " $${tt:-N/A}; \
+			done; \
+			printf "|\n"; \
+		done \
+	else \
+		echo "Skipping AMD64 benchmarks: not on x86_64"; \
+	fi
+
+bench-aarch64: $(BENCH_BINS) ## Run AArch64 backend benchmarks
+	@echo
+	@if [ "$(ARCH)" = "aarch64" ]; then \
+		echo "=== AArch64 Benchmarks (Total time in sec) ==="; \
+		printf "| Backend "; \
+		for b in $(sort $(foreach src,$(BENCH_SRCS),$(basename $(notdir $(src))))); do \
+			printf "| %s " $$b; \
+		done; \
+		printf "|\n"; \
+		printf "|---"; \
+		for b in $(sort $(foreach src,$(BENCH_SRCS),$(basename $(notdir $(src))))); do \
+			printf "|---"; \
+		done; \
+		printf "|\n"; \
+		for t in $(AARCH64_TARGETS); do \
+			printf "| %s " $$t; \
+			for b in $(sort $(foreach src,$(BENCH_SRCS),$(basename $(notdir $(src))))); do \
+				tt=$$(HSD_BENCH_FORCE_BACKEND=$$t $(BIN_DIR)/$$b 2>/dev/null | awk '/Total time:/ {print $$3}'); \
+				printf "| %s " $${tt:-N/A}; \
+			done; \
+			printf "|\n"; \
+		done \
+	else \
+		echo "Skipping AArch64 benchmarks: not on aarch64"; \
+	fi
+
+bench-clean: ## Remove benchmark binaries
+	@echo "Cleaning benchmark binaries..."
+	@rm -f $(BENCH_BINS)
 
 # Include dependency files
 -include $(DEP_FILES)
