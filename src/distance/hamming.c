@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>  // Needed for memcpy in AVX2
+#include <string.h>
 
 #include "hsdlib.h"
 
@@ -12,6 +12,12 @@
 #include <arm_neon.h>
 #if defined(__ARM_FEATURE_SVE)
 #include <arm_sve.h>
+#endif
+#if defined(__aarch64__)
+extern bool hsd_cpu_has_neon(void);
+#if defined(__ARM_FEATURE_SVE)
+extern bool hsd_cpu_has_sve(void);
+#endif
 #endif
 #endif
 
@@ -137,36 +143,33 @@ __attribute__((target("+sve"))) static hsd_status_t hamming_sve_internal(const u
                                                                          uint64_t *result) {
     hsd_log("Enter hamming_sve_internal (n=%zu)", n);
     int64_t i = 0;
-    int64_t n_sve = (int64_t)n;  // Use for loop comparison
+    int64_t n_sve = (int64_t)n;
     svbool_t pg;
-    svuint64_t acc = svdup_n_u64(0);  // Accumulator for u64 sums
+    svuint64_t acc = svdup_n_u64(0);
 
     while (i < n_sve) {
-        // FIX: Cast loop counter/bound to uint64_t for predicate generation
         pg = svwhilelt_b8((uint64_t)i, (uint64_t)n);
 
         svuint8_t va = svld1_u8(pg, a + i);
         svuint8_t vb = svld1_u8(pg, b + i);
-        svuint8_t x = sveor_z(pg, va, vb);  // Zero inactive lanes
-        svuint8_t pc8 = svcnt_u8_z(pg, x);  // Zero inactive lanes
+        svuint8_t x = sveor_z(pg, va, vb);
+        svuint8_t pc8 = svcnt_u8_z(pg, x);
 
-        // Widen popcounts and accumulate into u64 vector
         svuint16_t pc16_lo = svunpklo_u16(pc8);
         svuint16_t pc16_hi = svunpkhi_u16(pc8);
         svuint32_t pc32_lo = svunpklo_u32(pc16_lo);
         svuint32_t pc32_hi = svunpkhi_u32(pc16_hi);
 
-        // svaddwb/t are NOT predicated, operate on zeroed inputs from above
         acc = svaddwb_u64(acc, pc32_lo);
         acc = svaddwt_u64(acc, pc32_hi);
 
-        i += svcntb();  // Increment by number of bytes processed
+        i += svcntb();
     }
 
-    *result = svaddv_u64(svptrue_b64(), acc);  // Horizontal sum of u64 lanes
+    *result = svaddv_u64(svptrue_b64(), acc);
     return HSD_SUCCESS;
 }
-#endif  // __ARM_FEATURE_SVE
+#endif
 #endif
 
 static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void);
@@ -225,6 +228,24 @@ static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void) {
                 }
                 break;
 #endif
+#if defined(__aarch64__) || defined(__arm__)
+            case HSD_BACKEND_NEON:
+                if (hsd_cpu_has_neon()) {
+                    chosen_func = hamming_neon_internal;
+                    reason = "NEON (Forced)";
+                    supported = true;
+                }
+                break;
+#if defined(__ARM_FEATURE_SVE)
+            case HSD_BACKEND_SVE:
+                if (hsd_cpu_has_sve()) {
+                    chosen_func = hamming_sve_internal;
+                    reason = "SVE (Forced)";
+                    supported = true;
+                }
+                break;
+#endif
+#endif
             case HSD_BACKEND_SCALAR:
                 chosen_func = hamming_scalar_internal;
                 reason = "Scalar (Forced)";
@@ -236,7 +257,7 @@ static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void) {
                 break;
         }
         if (!(supported) && forced != HSD_BACKEND_SCALAR) {
-            hsd_log("Forced %d not supported; falling back", forced);
+            hsd_log("Forced backend %d not supported; falling back to Scalar.", forced);
             chosen_func = hamming_scalar_internal;
             reason = "Scalar (Fallback)";
         }
@@ -251,13 +272,23 @@ static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void) {
             reason = "AVX2 (Auto)";
         }
 #elif defined(__aarch64__) || defined(__arm__)
+#if defined(__ARM_FEATURE_SVE)
+        if (hsd_cpu_has_sve()) {
+            chosen_func = hamming_sve_internal;
+            reason = "SVE (Auto)";
+        } else if (hsd_cpu_has_neon()) {
+            chosen_func = hamming_neon_internal;
+            reason = "NEON (Auto)";
+        }
+#else
         if (hsd_cpu_has_neon()) {
             chosen_func = hamming_neon_internal;
             reason = "NEON (Auto)";
         }
 #endif
+#endif
     }
 
-    hsd_log("Dispatch: %s", reason);
+    hsd_log("Dispatch: Resolved Hamming U8 to: %s", reason);
     return chosen_func;
 }

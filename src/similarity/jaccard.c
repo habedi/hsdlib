@@ -10,6 +10,7 @@
 #include <immintrin.h>
 extern bool hsd_cpu_has_avx512f(void);
 extern bool hsd_cpu_has_avx512bw(void);
+extern bool hsd_cpu_has_avx512dq(void);
 extern bool hsd_cpu_has_avx2(void);
 #elif defined(__aarch64__) || defined(__arm__)
 #include <arm_neon.h>
@@ -29,10 +30,6 @@ typedef struct {
 typedef hsd_status_t (*hsd_jaccard_get_sums_func_t)(const uint16_t *, const uint16_t *, size_t,
                                                     HSD_TripleSumU64 *);
 
-//--------------------------------------------------
-// scalar, AVX2, AVX512, NEON, SVE implementations
-//--------------------------------------------------
-
 static inline hsd_status_t calculate_jaccard_similarity_from_sums_u64(uint64_t dot, uint64_t nAsq,
                                                                       uint64_t nBsq,
                                                                       float *result) {
@@ -45,18 +42,24 @@ static inline hsd_status_t calculate_jaccard_similarity_from_sums_u64(uint64_t d
     double d_nBsq = (double)nBsq;
     double denom = d_nAsq + d_nBsq - d_dot;
     double sim;
+
     if (denom < 1e-9) {
         sim = 1.0;
     } else {
         sim = d_dot / denom;
     }
+
     if (sim > 1.0) sim = 1.0;
     if (sim < 0.0) sim = 0.0;
+
     *result = (float)sim;
+
+#if HSD_ALLOW_FP_CHECKS
     if (isnan(*result) || isinf(*result)) {
         *result = NAN;
         return HSD_ERR_INVALID_INPUT;
     }
+#endif
     return HSD_SUCCESS;
 }
 
@@ -70,9 +73,11 @@ static hsd_status_t jaccard_get_sums_scalar_internal(const uint16_t *a, const ui
         n_a_sq += va * va;
         n_b_sq += vb * vb;
     }
+
     sums->dot_product = dot_p;
     sums->norm_a_sq = n_a_sq;
     sums->norm_b_sq = n_b_sq;
+
     return HSD_SUCCESS;
 }
 
@@ -105,25 +110,32 @@ __attribute__((target("avx2"))) static hsd_status_t jaccard_get_sums_avx2_intern
         __m256i b_lo2 = _mm256_mullo_epi32(vb32_lo, vb32_lo);
         __m256i b_hi2 = _mm256_mullo_epi32(vb32_hi, vb32_hi);
 
-        // accumulate into 64-bit lanes
-        dot_acc =
-            _mm256_add_epi64(dot_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(dot_lo, 0)));
-        dot_acc =
-            _mm256_add_epi64(dot_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(dot_lo, 1)));
-        dot_acc =
-            _mm256_add_epi64(dot_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(dot_hi, 0)));
-        dot_acc =
-            _mm256_add_epi64(dot_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(dot_hi, 1)));
+        __m256i dot_p0 = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(dot_lo));
+        __m256i dot_p1 = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(dot_lo, 1));
+        __m256i dot_p2 = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(dot_hi));
+        __m256i dot_p3 = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(dot_hi, 1));
+        dot_acc = _mm256_add_epi64(dot_acc, dot_p0);
+        dot_acc = _mm256_add_epi64(dot_acc, dot_p1);
+        dot_acc = _mm256_add_epi64(dot_acc, dot_p2);
+        dot_acc = _mm256_add_epi64(dot_acc, dot_p3);
 
-        a_acc = _mm256_add_epi64(a_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(a_lo2, 0)));
-        a_acc = _mm256_add_epi64(a_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(a_lo2, 1)));
-        a_acc = _mm256_add_epi64(a_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(a_hi2, 0)));
-        a_acc = _mm256_add_epi64(a_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(a_hi2, 1)));
+        __m256i a_p0 = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(a_lo2));
+        __m256i a_p1 = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(a_lo2, 1));
+        __m256i a_p2 = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(a_hi2));
+        __m256i a_p3 = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(a_hi2, 1));
+        a_acc = _mm256_add_epi64(a_acc, a_p0);
+        a_acc = _mm256_add_epi64(a_acc, a_p1);
+        a_acc = _mm256_add_epi64(a_acc, a_p2);
+        a_acc = _mm256_add_epi64(a_acc, a_p3);
 
-        b_acc = _mm256_add_epi64(b_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(b_lo2, 0)));
-        b_acc = _mm256_add_epi64(b_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(b_lo2, 1)));
-        b_acc = _mm256_add_epi64(b_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(b_hi2, 0)));
-        b_acc = _mm256_add_epi64(b_acc, _mm256_cvtepu32_epi64(_mm256_extracti128_si256(b_hi2, 1)));
+        __m256i b_p0 = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(b_lo2));
+        __m256i b_p1 = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(b_lo2, 1));
+        __m256i b_p2 = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(b_hi2));
+        __m256i b_p3 = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(b_hi2, 1));
+        b_acc = _mm256_add_epi64(b_acc, b_p0);
+        b_acc = _mm256_add_epi64(b_acc, b_p1);
+        b_acc = _mm256_add_epi64(b_acc, b_p2);
+        b_acc = _mm256_add_epi64(b_acc, b_p3);
     }
 
     uint64_t dot_s[4], a_s[4], b_s[4];
@@ -162,13 +174,13 @@ jaccard_get_sums_avx512_internal(const uint16_t *a, const uint16_t *b, size_t n,
         __m512i vb16 = _mm512_loadu_si512((const __m512i *)(b + i));
 
         __m256i va16_lo = _mm512_extracti64x4_epi64(va16, 0);
-        __m256i vb16_lo = _mm512_extracti64x4_epi64(vb16, 0);
         __m256i va16_hi = _mm512_extracti64x4_epi64(va16, 1);
+        __m256i vb16_lo = _mm512_extracti64x4_epi64(vb16, 0);
         __m256i vb16_hi = _mm512_extracti64x4_epi64(vb16, 1);
 
         __m512i va32_lo = _mm512_cvtepu16_epi32(va16_lo);
-        __m512i vb32_lo = _mm512_cvtepu16_epi32(vb16_lo);
         __m512i va32_hi = _mm512_cvtepu16_epi32(va16_hi);
+        __m512i vb32_lo = _mm512_cvtepu16_epi32(vb16_lo);
         __m512i vb32_hi = _mm512_cvtepu16_epi32(vb16_hi);
 
         __m512i dot_lo = _mm512_mullo_epi32(va32_lo, vb32_lo);
@@ -198,17 +210,10 @@ jaccard_get_sums_avx512_internal(const uint16_t *a, const uint16_t *b, size_t n,
         b_acc = _mm512_add_epi64(b_acc, _mm512_cvtepu32_epi64(_mm512_extracti32x8_epi32(b_hi2, 1)));
     }
 
-    uint64_t dot_s[8], a_s[8], b_s[8];
-    _mm512_storeu_si512((__m512i *)dot_s, dot_acc);
-    _mm512_storeu_si512((__m512i *)a_s, a_acc);
-    _mm512_storeu_si512((__m512i *)b_s, b_acc);
+    uint64_t dot_p = _mm512_reduce_add_epi64(dot_acc);
+    uint64_t n_a_sq = _mm512_reduce_add_epi64(a_acc);
+    uint64_t n_b_sq = _mm512_reduce_add_epi64(b_acc);
 
-    uint64_t dot_p = 0, n_a_sq = 0, n_b_sq = 0;
-    for (int k = 0; k < 8; ++k) {
-        dot_p += dot_s[k];
-        n_a_sq += a_s[k];
-        n_b_sq += b_s[k];
-    }
     for (; i < n; ++i) {
         uint64_t va = a[i], vb = b[i];
         dot_p += va * vb;
@@ -279,14 +284,14 @@ __attribute__((target("+sve"))) static hsd_status_t jaccard_get_sums_sve_interna
     const uint16_t *a, const uint16_t *b, size_t n, HSD_TripleSumU64 *sums) {
     hsd_log("Enter jaccard_sve_internal<u16> (n=%zu)", n);
     int64_t i = 0;
-    int64_t total = (int64_t)n;
+    int64_t n_sve = (int64_t)n;
     svbool_t pg;
     svuint64_t dot_acc = svdup_n_u64(0);
     svuint64_t a_acc = svdup_n_u64(0);
     svuint64_t b_acc = svdup_n_u64(0);
 
-    while (i < total) {
-        pg = svwhilelt_b16((uint64_t)i, (uint64_t)n);
+    while (i < n_sve) {
+        pg = svwhilelt_b16((uint64_t)i, (uint64_t)n_sve);
         svuint16_t va16 = svld1_u16(pg, a + i);
         svuint16_t vb16 = svld1_u16(pg, b + i);
 
@@ -295,12 +300,13 @@ __attribute__((target("+sve"))) static hsd_status_t jaccard_get_sums_sve_interna
         svuint32_t vb_lo = svunpklo_u32(vb16);
         svuint32_t vb_hi = svunpkhi_u32(vb16);
 
-        svuint32_t dot_lo = svmul_u32_z(pg, va_lo, vb_lo);
-        svuint32_t dot_hi = svmul_u32_z(pg, va_hi, vb_hi);
-        svuint32_t a_lo2 = svmul_u32_z(pg, va_lo, va_lo);
-        svuint32_t a_hi2 = svmul_u32_z(pg, va_hi, va_hi);
-        svuint32_t b_lo2 = svmul_u32_z(pg, vb_lo, vb_lo);
-        svuint32_t b_hi2 = svmul_u32_z(pg, vb_hi, vb_hi);
+        svuint32_t dot_lo = svmul_u32_z(svptrue_b32(), va_lo, vb_lo);
+
+        svuint32_t dot_hi = svmul_u32_z(svptrue_b32(), va_hi, vb_hi);
+        svuint32_t a_lo2 = svmul_u32_z(svptrue_b32(), va_lo, va_lo);
+        svuint32_t a_hi2 = svmul_u32_z(svptrue_b32(), va_hi, va_hi);
+        svuint32_t b_lo2 = svmul_u32_z(svptrue_b32(), vb_lo, vb_lo);
+        svuint32_t b_hi2 = svmul_u32_z(svptrue_b32(), vb_hi, vb_hi);
 
         dot_acc = svaddwb_u64(dot_acc, dot_lo);
         dot_acc = svaddwt_u64(dot_acc, dot_hi);
@@ -317,12 +323,8 @@ __attribute__((target("+sve"))) static hsd_status_t jaccard_get_sums_sve_interna
     sums->norm_b_sq = svaddv_u64(svptrue_b64(), b_acc);
     return HSD_SUCCESS;
 }
-#endif  // SVE
-#endif  // ARM
-
-//-----------------------------------------------------------------------------
-// Resolver trampoline & dispatch
-//-----------------------------------------------------------------------------
+#endif
+#endif
 
 static hsd_jaccard_get_sums_func_t resolve_jaccard_get_sums_internal(void);
 static hsd_status_t jaccard_get_sums_resolver_trampoline(const uint16_t *, const uint16_t *, size_t,
@@ -362,8 +364,10 @@ static hsd_status_t jaccard_get_sums_resolver_trampoline(const uint16_t *a, cons
     uintptr_t expect = (uintptr_t)jaccard_get_sums_resolver_trampoline;
     atomic_compare_exchange_strong_explicit(&hsd_jaccard_get_sums_ptr, &expect, (uintptr_t)resolved,
                                             memory_order_release, memory_order_relaxed);
+    hsd_jaccard_get_sums_func_t current_func = (hsd_jaccard_get_sums_func_t)atomic_load_explicit(
+        &hsd_jaccard_get_sums_ptr, memory_order_acquire);
 
-    return resolved(a, b, n, sums);
+    return current_func(a, b, n, sums);
 }
 
 static hsd_jaccard_get_sums_func_t resolve_jaccard_get_sums_internal(void) {
@@ -374,41 +378,88 @@ static hsd_jaccard_get_sums_func_t resolve_jaccard_get_sums_internal(void) {
 
     if (forced != HSD_BACKEND_AUTO) {
         hsd_log("Jaccard U16: Forced backend %d", forced);
-        bool ok = false;
+        bool supported = false;
+        switch (forced) {
 #if defined(__x86_64__) || defined(_M_X64)
-        if (forced == HSD_BACKEND_AVX512BW && hsd_cpu_has_avx512f() && hsd_cpu_has_avx512bw()) {
-            chosen = jaccard_get_sums_avx512_internal;
-            reason = "AVX512 F+BW (Forced)";
-            ok = true;
-        } else if (forced == HSD_BACKEND_AVX2 && hsd_cpu_has_avx2()) {
-            chosen = jaccard_get_sums_avx2_internal;
-            reason = "AVX2 (Forced)";
-            ok = true;
-        }
+            case HSD_BACKEND_AVX512BW:
+            case HSD_BACKEND_AVX512DQ:
+                if (hsd_cpu_has_avx512f() && hsd_cpu_has_avx512bw() && hsd_cpu_has_avx512dq()) {
+                    chosen = jaccard_get_sums_avx512_internal;
+                    reason = "AVX512 F+BW+DQ (Forced)";
+                    supported = true;
+                }
+                break;
+            case HSD_BACKEND_AVX2:
+                if (hsd_cpu_has_avx2()) {
+                    chosen = jaccard_get_sums_avx2_internal;
+                    reason = "AVX2 (Forced)";
+                    supported = true;
+                }
+                break;
 #endif
-        if (!ok) {
-            hsd_log("Forced backend %d not supported, falling back", forced);
+#if defined(__aarch64__) || defined(__arm__)
+            case HSD_BACKEND_NEON:
+                if (hsd_cpu_has_neon()) {
+                    chosen = jaccard_get_sums_neon_internal;
+                    reason = "NEON (Forced)";
+                    supported = true;
+                }
+                break;
+#if defined(__ARM_FEATURE_SVE)
+            case HSD_BACKEND_SVE:
+                if (hsd_cpu_has_sve()) {
+                    chosen = jaccard_get_sums_sve_internal;
+                    reason = "SVE (Forced)";
+                    supported = true;
+                }
+                break;
+#endif
+#endif
+            case HSD_BACKEND_SCALAR:
+                chosen = jaccard_get_sums_scalar_internal;
+                reason = "Scalar (Forced)";
+                supported = true;
+                break;
+            default:
+                reason = "Scalar (Forced backend invalid)";
+                chosen = jaccard_get_sums_scalar_internal;
+                break;
+        }
+
+        if (!supported && forced != HSD_BACKEND_SCALAR) {
+            hsd_log("Forced backend %d not supported, falling back to Scalar", forced);
             chosen = jaccard_get_sums_scalar_internal;
             reason = "Scalar (Fallback)";
         }
     } else {
         reason = "Scalar (Auto)";
 #if defined(__x86_64__) || defined(_M_X64)
-        if (hsd_cpu_has_avx512f() && hsd_cpu_has_avx512bw()) {
+
+        if (hsd_cpu_has_avx512f() && hsd_cpu_has_avx512bw() && hsd_cpu_has_avx512dq()) {
             chosen = jaccard_get_sums_avx512_internal;
-            reason = "AVX512 F+BW (Auto)";
+            reason = "AVX512 F+BW+DQ (Auto)";
         } else if (hsd_cpu_has_avx2()) {
             chosen = jaccard_get_sums_avx2_internal;
             reason = "AVX2 (Auto)";
         }
 #elif defined(__aarch64__) || defined(__arm__)
+#if defined(__ARM_FEATURE_SVE)
+        if (hsd_cpu_has_sve()) {
+            chosen = jaccard_get_sums_sve_internal;
+            reason = "SVE (Auto)";
+        } else if (hsd_cpu_has_neon()) {
+            chosen = jaccard_get_sums_neon_internal;
+            reason = "NEON (Auto)";
+        }
+#else
         if (hsd_cpu_has_neon()) {
             chosen = jaccard_get_sums_neon_internal;
             reason = "NEON (Auto)";
         }
 #endif
+#endif
     }
 
-    hsd_log("Dispatch: %s", reason);
+    hsd_log("Dispatch: Resolved Jaccard U16 to: %s", reason);
     return chosen;
 }

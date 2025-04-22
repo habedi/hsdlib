@@ -330,6 +330,9 @@ else
 	@echo "Unsupported OS for automatic dependency installation"
 	@echo "Please install required tools manually"
 endif
+	@echo "Installing Python dependencies..."
+	@pip3 install -U uv
+	@echo "All dependencies installed"
 
 .PHONY: format
 format: ## Format all C source and header files
@@ -380,6 +383,7 @@ $(EXAMPLE_BIN): $(EXAMPLE_SRC) $(STATIC_LIB) | $(BIN_DIR)
 ####################################################################################################
 BENCH_DIR    := benches/c
 BENCH_SRCS   := $(wildcard $(BENCH_DIR)/bench_*.c)
+BENCH_RND_SEED  := 53 # Random seed for benchmarks
 
 # Generate single binary names for each benchmark
 BENCH_BINS   := $(foreach src,$(BENCH_SRCS),$(BIN_DIR)/$(basename $(notdir $(src))))
@@ -392,6 +396,7 @@ $(BIN_DIR)/bench_%: $(BENCH_DIR)/bench_%.c build-release | $(BIN_DIR)
 	@echo "Building $@"
 	@$(CC) $(BENCH_CFLAGS) \
 		-D_POSIX_C_SOURCE=200809L \
+		-DRANDOM_SEED=$(BENCH_RND_SEED) \
 		-std=c11 -Iinclude -I$(BENCH_DIR) \
 		-o $@ $< $(STATIC_LIB) -lm
 
