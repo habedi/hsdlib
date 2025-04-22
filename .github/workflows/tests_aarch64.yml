@@ -1,4 +1,4 @@
-name: Run Test (AArch64)
+name: Run Tests (AArch64)
 
 on:
   workflow_dispatch:

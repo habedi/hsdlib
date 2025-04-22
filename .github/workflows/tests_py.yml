@@ -1,47 +1,130 @@
-name: Run Test (HsdPy; AMD64)
+name: Build and Release Hsdlib (AMD64)
 
 on:
-  workflow_dispatch:  # Allow manual runs
+  workflow_dispatch: # Allow manual execution
   push:
     tags:
-      - 'v*'  # Trigger on version tags
+      - 'v*' # Trigger on version tags
 
 permissions:
-  contents: read
+  contents: write
 jobs:
-  build:
+  build-linux:
+    name: Build Linux (amd64)
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        # Define the Python versions to test against
-        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Dependencies
+      - name: Install Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y make
-          make install-deps
+          sudo apt-get install -y build-essential make gcc
 
-      - name: Run Tests for HsdPy
-        run: |
-          uv sync
-          uv pip install -e ".[dev]"
-          make python-install
-          make python-tests
-        continue-on-error: false
+      - name: Build Linux Shared Library (.so)
+        run: make build BUILD_TYPE=release
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-        continue-on-error: true
+          name: libhsd-linux-amd64
+          path: lib/libhsd.so
+
+  build-macos:
+    name: Build macOS (amd64)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check Xcode Command Line Tools
+        run: xcode-select --install || echo "Xcode Command Line Tools already installed"
+        shell: bash
+
+      - name: Install Additional Build Tools
+        run: brew install make gcc
+        shell: bash
+
+      - name: Build macOS Shared Library (.dylib)
+        run: make build BUILD_TYPE=release
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libhsd-macos-amd64
+          path: lib/libhsd.dylib
+
+  build-windows:
+    name: Build Windows (amd64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Tools (MinGW + Make)
+        run: |
+          choco install mingw make --no-progress -y
+        shell: powershell
+
+      # Add MinGW bin to PATH
+      - name: Add MinGW to PATH
+        run: echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: powershell
+
+      - name: Build Windows Shared Library (.dll)
+        run: make build
+        shell: bash
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libhsd-windows-amd64
+          path: lib/hsd.dll
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [ build-linux, build-macos, build-windows ]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write # Needed to create releases and upload assets
+
+    steps:
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: libhsd-linux-amd64
+          path: ./release_assets/linux
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: libhsd-macos-amd64
+          path: ./release_assets/macos
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: libhsd-windows-amd64
+          path: ./release_assets/windows
+
+      - name: List Downloaded Files (for debugging)
+        run: ls -R ./release_assets
+
+      - name: Package All Artifacts into a Single Zip File
+        run: |
+          cd release_assets
+          # Create a single zip containing the libraries within their OS folders
+          zip -r ../hsdlib-amd64-binaries.zip linux/libhsd.so macos/libhsd.dylib windows/libhsd.dll
+          cd ..
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: ./hsdlib-amd64-binaries.zip # Upload the single zip file
+          tag: ${{ github.ref_name }} # Use the tag that triggered the workflow
+          name: Release ${{ github.ref_name }}
+          body: "Automated release build for hsdlib version ${{ github.ref_name }}. Contains amd64 shared libraries for Linux (.so), macOS (.dylib), and Windows (.dll)."
+          draft: false
+          prerelease: false # Set to true if these are pre-releases

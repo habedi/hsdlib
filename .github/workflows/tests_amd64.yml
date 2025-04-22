@@ -1,4 +1,4 @@
-name: Run Test (AMD64)
+name: Run Tests (AMD64)
 
 on:
   workflow_dispatch:  # Allow manual runs

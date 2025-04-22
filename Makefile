@@ -44,6 +44,12 @@ ifeq ($(OS),Darwin)
     STATIC_LIB_EXT     := a
     EXE_EXT            :=
 endif
+ifneq (,$(filter Windows_NT MINGW%,$(OS)))
+    SHARED_LIB_EXT     := dll
+    SHARED_LIB_PREFIX  :=
+    STATIC_LIB_EXT     := lib
+    EXE_EXT            := .exe
+endif
 
 SHARED_LIB_FILENAME ?= $(SHARED_LIB_PREFIX)hsd.$(SHARED_LIB_EXT)
 STATIC_LIB_FILENAME ?= $(SHARED_LIB_PREFIX)hsd.$(STATIC_LIB_EXT)
@@ -125,6 +131,13 @@ $(BIN_DIR) $(LIB_DIR) $(DOC_DIR) $(TARGET_DIR) $(LIB_OBJ_DIRS):
 ####################################################################################################
 .PHONY: build
 build: $(STATIC_LIB) $(SHARED_LIB) ## Build both static and shared libraries (C compilation method)
+	@echo "Build parameters:"
+	@echo "  - Build type: $(BUILD_TYPE)"
+	@echo "  - Compiler: $(CC)"
+	@echo "  - Static library: $(STATIC_LIB)"
+	@echo "  - Shared library: $(SHARED_LIB)"
+	@echo "  - OS: $(OS)"
+	@echo "  - Architecture: $(ARCH)"
 	@echo "Build complete: static and shared libraries ready"
 
 .PHONY: rebuild
@@ -482,6 +495,7 @@ clean: python-clean zig-clean ## Remove all build artifacts and temporary files
 	@rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex
 	@echo "Clean complete"
 
+.PHONY: all
 all: rebuild test ## Rebuild the library and run tests
 
 # Include dependency files
