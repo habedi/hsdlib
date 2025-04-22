@@ -5,79 +5,79 @@
 <!-- Title: HSDLibLogo Pages: 1 -->
 
 <svg
-    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-    width="215pt"
-    height="51pt"
-    viewBox="0.00 0.00 215.00 51.00"
-    version="1.1"
-    id="svg18"
-    sodipodi:docname="logo.svg"
-    inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
-    xmlns="http://www.w3.org/2000/svg"
+        xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+        xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+        width="215pt"
+        height="51pt"
+        viewBox="0.00 0.00 215.00 51.00"
+        version="1.1"
+        id="svg18"
+        sodipodi:docname="logo.svg"
+        inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+        xmlns="http://www.w3.org/2000/svg"
 >
     <defs
-        id="defs22"/>
+            id="defs22"/>
     <sodipodi:namedview
-        id="namedview20"
-        pagecolor="#ffffff"
-        bordercolor="#000000"
-        borderopacity="0.25"
-        inkscape:showpageshadow="2"
-        inkscape:pageopacity="0.0"
-        inkscape:pagecheckerboard="0"
-        inkscape:deskcolor="#d1d1d1"
-        inkscape:document-units="pt"
-        showgrid="false"
-        inkscape:zoom="3.4705882"
-        inkscape:cx="135.5678"
-        inkscape:cy="34.144068"
-        inkscape:window-width="1862"
-        inkscape:window-height="1131"
-        inkscape:window-x="58"
-        inkscape:window-y="32"
-        inkscape:window-maximized="1"
-        inkscape:current-layer="svg18"/>
+            id="namedview20"
+            pagecolor="#ffffff"
+            bordercolor="#000000"
+            borderopacity="0.25"
+            inkscape:showpageshadow="2"
+            inkscape:pageopacity="0.0"
+            inkscape:pagecheckerboard="0"
+            inkscape:deskcolor="#d1d1d1"
+            inkscape:document-units="pt"
+            showgrid="false"
+            inkscape:zoom="3.4705882"
+            inkscape:cx="135.5678"
+            inkscape:cy="34.144068"
+            inkscape:window-width="1862"
+            inkscape:window-height="1131"
+            inkscape:window-x="58"
+            inkscape:window-y="32"
+            inkscape:window-maximized="1"
+            inkscape:current-layer="svg18"/>
     <polygon
-        fill="#ffffff"
-        stroke="transparent"
-        points="211,-47 211,4 -4,4 -4,-47 "
-        id="polygon4"
-        transform="translate(4,47)"/>
+            fill="#ffffff"
+            stroke="transparent"
+            points="211,-47 211,4 -4,4 -4,-47 "
+            id="polygon4"
+            transform="translate(4,47)"/>
     <polygon
-        fill="#e8f8f5"
-        stroke="#1abc9c"
-        stroke-width="2"
-        points="207,-43 0,-43 0,0 207,0 "
-        id="polygon8"
-        transform="translate(4,47)"/>
+            fill="#e8f8f5"
+            stroke="#1abc9c"
+            stroke-width="2"
+            points="207,-43 0,-43 0,0 207,0 "
+            id="polygon8"
+            transform="translate(4,47)"/>
     <text
-        text-anchor="start"
-        x="84.14801"
-        y="25.5"
-        font-family="Helvetica, Arial, sans-serif"
-        font-size="28px"
-        id="text10">       
+            text-anchor="start"
+            x="84.14801"
+            y="25.5"
+            font-family="Helvetica, Arial, sans-serif"
+            font-size="28px"
+            id="text10">       
     </text>
     <text
-        text-anchor="start"
-        x="57.408009"
-        y="34.334"
-        font-family="Helvetica, sans-Serif"
-        font-size="28px"
-        id="text12">∥x − y∥
+            text-anchor="start"
+            x="57.408009"
+            y="34.334"
+            font-family="Helvetica, sans-Serif"
+            font-size="28px"
+            id="text12">∥x − y∥
     </text>
     <text
-        text-anchor="start"
-        x="99.716003"
-        y="25.5"
-        font-family="Helvetica, Arial, sans-serif"
-        font-size="28px"
-        id="text14">   
+            text-anchor="start"
+            x="99.716003"
+            y="25.5"
+            font-family="Helvetica, Arial, sans-serif"
+            font-size="28px"
+            id="text14">   
     </text>
     <path
-        style="fill:#aa8800;stroke-width:0.288136"
-        d="M 4.1779661,34 V 4.0338983 H 143.34746 282.51695 V 34 63.966102 H 143.34746 4.1779661 Z M 280.21187,34 V 6.6271187 H 143.34746 6.4830509 V 34 61.372882 H 143.34746 280.21187 Z"
-        id="path1606"
-        transform="scale(0.75)"/>
+            style="fill:#aa8800;stroke-width:0.288136"
+            d="M 4.1779661,34 V 4.0338983 H 143.34746 282.51695 V 34 63.966102 H 143.34746 4.1779661 Z M 280.21187,34 V 6.6271187 H 143.34746 6.4830509 V 34 61.372882 H 143.34746 280.21187 Z"
+            id="path1606"
+            transform="scale(0.75)"/>
 </svg>

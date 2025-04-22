@@ -22,7 +22,7 @@ jobs:
           sudo apt-get install -y build-essential make gcc
 
       - name: Build Linux Shared Library (.so)
-        run: make build BUILD_TYPE=release
+        run: make build-release
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
@@ -46,7 +46,7 @@ jobs:
         shell: bash
 
       - name: Build macOS Shared Library (.dylib)
-        run: make build BUILD_TYPE=release
+        run: make build-release
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
         shell: powershell
 
       - name: Build Windows Shared Library (.dll)
-        run: make build
+        run: make build-release
         shell: bash
 
       - name: Upload Windows Artifact
