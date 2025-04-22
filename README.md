@@ -46,7 +46,7 @@ To get started with Hsdlib, you can clone the repository and build the library u
 git clone --depth=1 https://github.com/habedi/hsdlib
 cd hsdlib
 
-# Install dependencies
+# Install dependencies (for Debian-based systems)
 make install-deps
 
 # Build the library (shared and static)
@@ -73,14 +73,14 @@ To generate the documentation, use the `make doc` command and then open the `doc
 
 #### API Summary
 
-| Distance or Similarity Function | Description                                                                                                           |
-|:--------------------------------|:----------------------------------------------------------------------------------------------------------------------|
-| `hsd_dist_sqeuclidean_f32(...)` | Compute squared Euclidean ($L2^2$) distance between two float vectors.                                                |
-| `hsd_dist_manhattan_f32(...)`   | Compute Manhattan ($L1$) distance between two float vectors.                                                          |
-| `hsd_dist_hamming_u8(...)`      | Compute Hamming distance between two binary or non-binary byte vectors.                                               |
-| `hsd_sim_dot_f32(...)`          | Compute dot product similarity between two float vectors.                                                             |
-| `hsd_sim_cosine_f32(...)`       | Compute cosine similarity between two float vectors.                                                                  |
-| `hsd_sim_jaccard_u16(...)`      | Compute Jaccard similarity between two binary vectors. If vectors are not binary, Tanimoto coefficient is calculated. |
+| Distance or Similarity Function | Description                                                                                                                               |
+|:--------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------|
+| `hsd_dist_sqeuclidean_f32(...)` | Compute squared Euclidean ($L2^2$) distance between two float vectors.                                                                    |
+| `hsd_dist_manhattan_f32(...)`   | Compute Manhattan ($L1$) distance between two float vectors.                                                                              |
+| `hsd_dist_hamming_u8(...)`      | Compute Hamming distance between two binary or non-binary byte vectors.                                                                   |
+| `hsd_sim_dot_f32(...)`          | Compute dot product similarity between two float vectors.                                                                                 |
+| `hsd_sim_cosine_f32(...)`       | Compute cosine similarity between two float vectors.                                                                                      |
+| `hsd_sim_jaccard_u16(...)`      | Compute Jaccard similarity between two binary vectors. If vectors are not binary (positive integers), Tanimoto coefficient is calculated. |
 
 The distance and similarity functions accept the following parameters in order:
 

@@ -31,6 +31,7 @@ c_uint16_p = POINTER(c_uint16)
 c_uint8_p = POINTER(c_uint8)
 c_uint64_p = POINTER(c_uint64)
 
+
 class LibraryLoader:
     @staticmethod
     def get_library_naming():
@@ -173,6 +174,7 @@ class LibraryLoader:
             f"common build directories (relative to {_here}/../..), and system paths."
         )
 
+
 def _setup_signature(func_name, restype, argtypes):
     try:
         func = getattr(_lib, func_name)
@@ -184,6 +186,7 @@ def _setup_signature(func_name, restype, argtypes):
         logger.warning(
             f"C function '{func_name}' not found in library '{_lib_info.get('lib_path', 'unknown path')}'.")
         return None
+
 
 _lib, _lib_info = LibraryLoader.load_hsd_library()
 
@@ -200,6 +203,7 @@ hsd_sim_jaccard_u16 = _setup_signature("hsd_sim_jaccard_u16", c_int,
 hsd_dist_hamming_u8 = _setup_signature("hsd_dist_hamming_u8", c_int,
                                        [c_uint8_p, c_uint8_p, c_size_t, c_uint64_p])
 hsd_get_backend = _setup_signature("hsd_get_backend", c_char_p, [])
+
 
 def get_library_info():
     info = _lib_info.copy()

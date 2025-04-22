@@ -6,7 +6,7 @@ authors = [
     { name = "Hassan Abedi", email = "hassan.abedi.t+hsdlib@gmail.com" },
 ]
 requires-python = ">=3.10"
-readme = "README.md"
+readme = "bindings/python/README.md"
 license = { text = "MIT" }
 keywords = ["python binding", "simd", "distance metrics", "similarity measures"]
 classifiers = [

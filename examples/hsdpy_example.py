@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import sys
-import numpy as np
 import hsdpy
+import numpy as np
+import sys
 
 VECTOR_DIM = 5
+
 
 def print_system_info():
     """Prints available HsdPy library and system information."""
@@ -47,9 +48,11 @@ def run_and_print(description, func, *args, is_integer_result=False):
             # Format floats similar to the C example
             print(f"{description}: {result:.4f}")
     except hsdpy.HsdError as e:
-        print(f"ERROR: {description} failed - HsdError Status={e.status_code}, Msg='{e.message}'", file=sys.stderr)
+        print(f"ERROR: {description} failed - HsdError Status={e.status_code}, Msg='{e.message}'",
+              file=sys.stderr)
     except NotImplementedError as e:
-        print(f"ERROR: {description} failed - Function not available in C library. {e}", file=sys.stderr)
+        print(f"ERROR: {description} failed - Function not available in C library. {e}",
+              file=sys.stderr)
     except Exception as e:
         # Catch other potential errors like TypeError, ValueError from validation
         print(f"ERROR: {description} failed - {type(e).__name__}: {e}", file=sys.stderr)

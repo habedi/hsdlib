@@ -367,7 +367,7 @@ example: ## Build and run the examples (for C and Python)
 	@$(EXAMPLE_BIN)
 	@echo "Running HsdPy examples..."
 	@$(MAKE) python-build BUILD_TYPE=release
-	@$(MAKE) python-install
+	@$(MAKE) python-install > /dev/null
 	@uv run python3 $(EXAMPLE_DIR)/hsdpy_example.py
 	@echo "Example execution complete"
 

@@ -1,9 +1,9 @@
 import ctypes
-from typing import Dict, Tuple, Union, Optional, Type, Any, cast
-import numpy as np
-import numpy.typing as npt
 import importlib.metadata
 import logging
+import numpy as np
+import numpy.typing as npt
+from typing import Dict, Tuple, Union, Optional, Type, Any, cast
 
 _logger = logging.getLogger(__name__)
 try:
@@ -18,11 +18,13 @@ except importlib.metadata.PackageNotFoundError:
 from . import _ctypes_bindings as ct
 from ._ctypes_bindings import get_library_info
 
+
 class HsdError(Exception):
     def __init__(self, status_code: int, message: str = "") -> None:
         self.status_code = status_code
         self.message = message
         super().__init__(f"HSD Error [{status_code}]: {message}")
+
 
 _ERROR_MAP: Dict[int, str] = {
     ct.HSD_ERR_NULL_PTR: "Null pointer error encountered in C library",
@@ -31,12 +33,15 @@ _ERROR_MAP: Dict[int, str] = {
     ct.HSD_FAILURE: "General failure reported by C library",
 }
 
+
 def _check_status(status: int) -> None:
     if status != ct.HSD_SUCCESS:
         message = _ERROR_MAP.get(status, f"Unknown error code {status} from C library")
         raise HsdError(status, message)
 
+
 CtypesPtr = Type[ctypes._Pointer]
+
 
 def _validate_and_prepare_numpy_pair(
     a: np.ndarray,
@@ -81,6 +86,7 @@ def _validate_and_prepare_numpy_pair(
 
     return cast(CtypesPtr, a_ptr), cast(CtypesPtr, b_ptr), n
 
+
 def dist_sqeuclidean_f32(a: np.ndarray, b: np.ndarray) -> float:
     c_func = ct.hsd_dist_sqeuclidean_f32
     if c_func is None:
@@ -93,6 +99,7 @@ def dist_sqeuclidean_f32(a: np.ndarray, b: np.ndarray) -> float:
     status = c_func(a_ptr, b_ptr, n, ctypes.byref(result))
     _check_status(status)
     return result.value
+
 
 def dist_manhattan_f32(a: np.ndarray, b: np.ndarray) -> float:
     c_func = ct.hsd_dist_manhattan_f32
@@ -107,6 +114,7 @@ def dist_manhattan_f32(a: np.ndarray, b: np.ndarray) -> float:
     _check_status(status)
     return result.value
 
+
 def dist_hamming_u8(a: np.ndarray, b: np.ndarray) -> int:
     c_func = ct.hsd_dist_hamming_u8
     if c_func is None:
@@ -119,6 +127,7 @@ def dist_hamming_u8(a: np.ndarray, b: np.ndarray) -> int:
     status = c_func(a_ptr, b_ptr, n, ctypes.byref(result))
     _check_status(status)
     return result.value
+
 
 def sim_dot_f32(a: np.ndarray, b: np.ndarray) -> float:
     c_func = ct.hsd_sim_dot_f32
@@ -133,6 +142,7 @@ def sim_dot_f32(a: np.ndarray, b: np.ndarray) -> float:
     _check_status(status)
     return result.value
 
+
 def sim_cosine_f32(a: np.ndarray, b: np.ndarray) -> float:
     c_func = ct.hsd_sim_cosine_f32
     if c_func is None:
@@ -145,6 +155,7 @@ def sim_cosine_f32(a: np.ndarray, b: np.ndarray) -> float:
     status = c_func(a_ptr, b_ptr, n, ctypes.byref(result))
     _check_status(status)
     return result.value
+
 
 def sim_jaccard_u16(a: np.ndarray, b: np.ndarray) -> float:
     c_func = ct.hsd_sim_jaccard_u16
@@ -159,6 +170,7 @@ def sim_jaccard_u16(a: np.ndarray, b: np.ndarray) -> float:
     _check_status(status)
     return result.value
 
+
 def get_backend() -> str:
     c_func = ct.hsd_get_backend
     if c_func is None:
@@ -168,6 +180,7 @@ def get_backend() -> str:
         return backend_bytes.decode('utf-8') if backend_bytes else "unknown"
     except Exception as e:
         return f"error retrieving backend info: {e}"
+
 
 __all__ = [
     "dist_sqeuclidean_f32",
