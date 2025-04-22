@@ -1,12 +1,11 @@
 import hsdpy
 import numpy as np
+import platform
 import pytest
 from scipy.spatial.distance import cityblock as scipy_manhattan
 from scipy.spatial.distance import cosine as scipy_cosine_dist
 from scipy.spatial.distance import euclidean as scipy_euclidean
 
-
-# Tests follow an arrange-act-assert pattern
 
 def test_sqeuclidean_f32_basic():
     a = np.array([1, 2, 3], dtype=np.float32)
@@ -47,7 +46,6 @@ def test_sqeuclidean_f32_dtype_casting_ok():
 def test_sqeuclidean_f32_dtype_error_unsafe():
     a = np.array([1 + 1j, 2], dtype=np.complex64)
     b = np.array([1, 2], dtype=np.complex64)
-    # Update the match pattern
     with pytest.raises(TypeError, match="cannot be safely cast"):
         hsdpy.dist_sqeuclidean_f32(a, b)
 
@@ -63,16 +61,14 @@ def test_cosine_f32_identical():
     a = np.array([1, 2, 3], dtype=np.float32)
     b = np.array([1, 2, 3], dtype=np.float32)
     expected_similarity = 1.0
-    assert hsdpy.sim_cosine_f32(a, b) == pytest.approx(expected_similarity,
-                                                       abs=1.5e-7)  # Adjusted tolerance
+    assert hsdpy.sim_cosine_f32(a, b) == pytest.approx(expected_similarity, abs=1.5e-7)
 
 
 def test_cosine_f32_opposite():
     a = np.array([1, 2, 3], dtype=np.float32)
     b = np.array([-1, -2, -3], dtype=np.float32)
     expected_similarity = -1.0
-    assert hsdpy.sim_cosine_f32(a, b) == pytest.approx(expected_similarity,
-                                                       abs=1.5e-7)  # Adjusted tolerance
+    assert hsdpy.sim_cosine_f32(a, b) == pytest.approx(expected_similarity, abs=1.5e-7)
 
 
 def test_cosine_f32_orthogonal():
@@ -172,7 +168,7 @@ def test_hamming_u8_zero_length():
 def test_hamming_u8_dtype_error():
     a = np.array([1, 2], dtype=np.int8)
     b = np.array([3, 4], dtype=np.int8)
-    with pytest.raises(TypeError, match="cannot be safely cast to uint8"):
+    with pytest.raises(TypeError, match="cannot be safely cast.*uint8"):
         hsdpy.dist_hamming_u8(a, b)
 
 
@@ -216,3 +212,31 @@ def test_jaccard_u16_zero_length():
     b = np.array([], dtype=np.uint16)
     expected = 1.0
     assert hsdpy.sim_jaccard_u16(a, b) == pytest.approx(expected)
+
+
+def test_get_library_info_structure_and_types():
+    info = hsdpy.get_library_info()
+    assert isinstance(info, dict), "get_library_info should return a dict"
+    expected_keys = ["system", "arch", "lib_path", "backend"]
+    for key in expected_keys:
+        assert key in info, f"Expected key '{key}' not found in library info"
+    assert isinstance(info["system"], str), "'system' value should be a string"
+    assert isinstance(info["arch"], str), "'arch' value should be a string"
+    assert isinstance(info["lib_path"], str), "'lib_path' value should be a string"
+    assert isinstance(info["backend"], str), "'backend' value should be a string"
+
+
+def test_get_library_info_content_plausibility():
+    info = hsdpy.get_library_info()
+    assert info[
+               "system"] == platform.system(), f"System '{info['system']}' does not match platform.system() '{platform.system()}'"
+    machine = platform.machine().lower()
+    expected_arch = machine
+    if machine in ("x86_64", "amd64"):
+        expected_arch = "amd64"
+    elif machine in ("arm64", "aarch64"):
+        expected_arch = "arm64"
+    assert info[
+               "arch"] == expected_arch, f"Architecture '{info['arch']}' does not match expected '{expected_arch}' for machine '{machine}'"
+    assert info["lib_path"] != "Unknown", "Library path should have been determined"
+    assert info["backend"].strip(), "Backend string should not be empty or just whitespace"

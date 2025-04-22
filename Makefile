@@ -292,7 +292,7 @@ python-clean: ## Clean Python-specific build artifacts and caches
 	@echo "Python clean complete"
 
 .PHONY: python-publish
-python-publish: ## Publish wheel package to PyPI using API token
+python-publish: ## Publish wheel package to PyPI (needs PYPI_TOKEN environment variable)
 	@echo "Publishing Python wheel to PyPI..."
 	@if [ -z "$$PYPI_TOKEN" ]; then \
 		echo "ERROR: PYPI_TOKEN environment variable is not set"; \
