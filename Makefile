@@ -355,20 +355,25 @@ doc: ## Generate documentation for the library using Doxygen
 ####################################################################################################
 ## Example Target
 ####################################################################################################
-EXAMPLE_SRC := examples/c/hsdlib_example.c
+EXAMPLE_DIR := examples
+EXAMPLE_SRC := $(EXAMPLE_DIR)/hsdlib_example.c
 EXAMPLE_BIN := $(BIN_DIR)/hsdlib_example
 
 .PHONY: example
-example: ## Build and run example(s)
+example: ## Build and run the examples (for C and Python)
 	@echo "Building example in release mode..."
 	@$(MAKE) $(EXAMPLE_BIN) BUILD_TYPE=release
 	@echo "Running Hsdlib examples..."
 	@$(EXAMPLE_BIN)
+	@echo "Running HsdPy examples..."
+	@$(MAKE) python-build BUILD_TYPE=release
+	@$(MAKE) python-install
+	@uv run python3 $(EXAMPLE_DIR)/hsdpy_example.py
 	@echo "Example execution complete"
 
 $(EXAMPLE_BIN): $(EXAMPLE_SRC) $(STATIC_LIB) | $(BIN_DIR)
 	@echo "Building example: $@"
-	@$(CC) $(LIB_CFLAGS) -o $@ $< $(STATIC_LIB) $(LDFLAGS) $(LIBS) -std=gnu2x -fsanitize=undefined
+	@$(CC) $(LIB_CFLAGS) -o $@ $< $(STATIC_LIB) $(LDFLAGS) $(LIBS) -std=gnu2x
 
 ####################################################################################################
 ## Benchmarks: build into bin/ with a single binary per benchmark

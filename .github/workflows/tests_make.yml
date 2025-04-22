@@ -1,4 +1,4 @@
-name: Run Benchmarks (AArch64)
+name: Run Tests (Makefile; Linux; AMD64)
 
 on:
   workflow_dispatch:  # Allow manual runs
@@ -20,9 +20,10 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y make
+          sudo apt-get install -y make bash
           make install-deps
 
-      - name: Run Benchmarks for AArch64
-        run: make bench-aarch64
+      - name: Run Tests for Makefile
+        run: |
+          bash test_makefile.sh
 

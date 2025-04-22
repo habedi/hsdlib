@@ -104,7 +104,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "numpy", specifier = ">=2.2.5" },
+    { name = "numpy", specifier = ">=2.0.0" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.391" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },

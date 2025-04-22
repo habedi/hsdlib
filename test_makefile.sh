@@ -6,10 +6,11 @@ echo "== Running the tests for the Makefile targets =="
 
 # List of all targets
 TARGETS=(
-  "example" "bench-aarch64" "bench-amd64" "bench-clean" "build-release" "bench"
-  "build" "cov" "doc" "format" "help" "install-deps" "python-publish"
-  "lint" "python-setup" "python-build" "python-clean" "python-install"
-  "python-test" "rebuild" "test" "test-aarch64" "test-amd64"
+  "example" "bench-aarch64" "bench-amd64" "bench-clean"  "bench"
+  "build" "rebuild" "test" "test-aarch64" "test-amd64"
+  "cov" "doc" "format" "help" "install-deps" "lint"
+  "build-release" "python-setup" "python-build" "python-install" "python-publish"
+  "python-test" "python-clean"
   "clean"
 )
 
