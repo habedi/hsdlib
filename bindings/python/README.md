@@ -1,4 +1,4 @@
-## PyGraphina
+## HsdPy
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../../LICENSE)
 [![Python version](https://img.shields.io/badge/Python-%3E=3.10-blue)](https://github.com/habedi/hsdlib)

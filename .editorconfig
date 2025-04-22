@@ -20,10 +20,6 @@ max_line_length = 100
 [*.py]
 max_line_length = 100
 
-# Zig files
-[*.zig]
-max_line_length = 100
-
 # Markdown files
 [*.md]
 max_line_length = 120

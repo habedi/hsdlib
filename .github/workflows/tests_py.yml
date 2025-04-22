@@ -112,10 +112,6 @@ jobs:
           cp temp-libs/libhsd-arm64.dylib/libhsd-arm64.dylib bindings/python/hsdpy/
           cp temp-libs/hsd-amd64.dll/hsd-amd64.dll bindings/python/hsdpy/
           cp temp-libs/hsd-arm64.dll/hsd-arm64.dll bindings/python/hsdpy/
-          # Also include files with original names for compatibility
-          cp bindings/python/hsdpy/libhsd-amd64.so bindings/python/hsdpy/libhsd.so
-          cp bindings/python/hsdpy/libhsd-amd64.dylib bindings/python/hsdpy/libhsd.dylib
-          cp bindings/python/hsdpy/hsd-amd64.dll bindings/python/hsdpy/hsd.dll
           ls -la bindings/python/hsdpy/
         shell: bash
 
@@ -131,6 +127,12 @@ jobs:
           make python-install
           make python-test
           tree
+
+      - name: Publish HsdPy to PyPI
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          make python-publish
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4

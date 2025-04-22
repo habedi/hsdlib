@@ -16,90 +16,175 @@ HSD_FAILURE = -99
 
 
 def _load_hsd_library():
+    # Get system and architecture information
+    system = platform.system()
+    machine = platform.machine().lower()
+
+    # Map architecture names to our standard names
+    arch = "amd64" if machine in ("x86_64", "amd64") else "arm64" if machine in ("arm64", "aarch64") else machine
+
+    # Set appropriate file extensions and prefixes based on OS
     lib_prefix = "lib"
     lib_suffix = ".so"
-    if platform.system() == "Darwin":
+    if system == "Darwin":
         lib_suffix = ".dylib"
-    elif platform.system() == "Windows":
+    elif system == "Windows":
         lib_prefix = ""
         lib_suffix = ".dll"
 
-    lib_name = f"{lib_prefix}hsd{lib_suffix}"
+    # Create library names (arch-specific and generic)
+    arch_lib_name = f"{lib_prefix}hsd-{arch}{lib_suffix}"
+    generic_lib_name = f"{lib_prefix}hsd{lib_suffix}"
+
     _here = os.path.dirname(__file__)
+    loaded_lib = None
+    lib_info = {
+        "system": system,
+        "arch": arch,
+        "lib_path": "Unknown"
+    }
 
-    lib_path_pkg = os.path.join(_here, lib_name)
-    if os.path.exists(lib_path_pkg):
+    # Try loading architecture-specific library first
+    lib_path_arch = os.path.join(_here, arch_lib_name)
+    if os.path.exists(lib_path_arch):
         try:
-            return ctypes.CDLL(lib_path_pkg) if platform.system() != "Windows" else ctypes.WinDLL(
-                lib_path_pkg)
+            print(f"Info: Found architecture-specific library: '{lib_path_arch}'", file=sys.stderr)
+            loaded_lib = ctypes.CDLL(lib_path_arch) if system != "Windows" else ctypes.WinDLL(lib_path_arch)
+            lib_info["lib_path"] = lib_path_arch
+            return loaded_lib, lib_info
         except OSError as e:
-            print(f"Warning: Found library at '{lib_path_pkg}' but failed to load: {e}",
-                  file=sys.stderr)
+            print(f"Warning: Found library at '{lib_path_arch}' but failed to load: {e}", file=sys.stderr)
 
-    print(
-        f"Info: Library not found at expected package location '{lib_path_pkg}'. Trying other methods...",
-        file=sys.stderr)
+    # Then try the generic library in the package
+    lib_path_generic = os.path.join(_here, generic_lib_name)
+    if os.path.exists(lib_path_generic):
+        try:
+            print(f"Info: Found generic library: '{lib_path_generic}'", file=sys.stderr)
+            loaded_lib = ctypes.CDLL(lib_path_generic) if system != "Windows" else ctypes.WinDLL(lib_path_generic)
+            lib_info["lib_path"] = lib_path_generic
+            return loaded_lib, lib_info
+        except OSError as e:
+            print(f"Warning: Found library at '{lib_path_generic}' but failed to load: {e}", file=sys.stderr)
 
+    print(f"Info: Library not found at expected package locations. Trying other methods...", file=sys.stderr)
+
+    # Try environment variable
     lib_path_env = os.environ.get("HSDLIB_PATH")
     if lib_path_env:
         if os.path.exists(lib_path_env):
             try:
-                return ctypes.CDLL(
-                    lib_path_env) if platform.system() != "Windows" else ctypes.WinDLL(lib_path_env)
+                loaded_lib = ctypes.CDLL(lib_path_env) if system != "Windows" else ctypes.WinDLL(lib_path_env)
+                lib_info["lib_path"] = lib_path_env
+                return loaded_lib, lib_info
             except OSError as e:
-                raise ImportError(
-                    f"Failed to load library from HSDLIB_PATH '{lib_path_env}': {e}") from e
+                raise ImportError(f"Failed to load library from HSDLIB_PATH '{lib_path_env}': {e}") from e
         else:
             print(f"Warning: HSDLIB_PATH '{lib_path_env}' not found.", file=sys.stderr)
 
+    # Try various build paths
     project_root = os.path.join(_here, "..", "..")
     build_paths = [
-        os.path.join(project_root, "lib", lib_name),  # Check ./lib/ first
-        os.path.join(project_root, "lib", "hsd.dll") if platform.system() == "Windows" else "",
-        os.path.join(project_root, "build", lib_name),
-        os.path.join(project_root, "cmake-build-debug", lib_name),
-        os.path.join(project_root, lib_name),
-        os.path.join(_here, "..", lib_name),
-        os.path.join(project_root, "build", "hsd.dll") if platform.system() == "Windows" else "",
-        os.path.join(project_root, "cmake-build-debug",
-                     "hsd.dll") if platform.system() == "Windows" else "",
+        # Check for architecture-specific libraries first
+        os.path.join(project_root, "lib", arch_lib_name),
+        os.path.join(project_root, "build", arch_lib_name),
+        os.path.join(project_root, "cmake-build-debug", arch_lib_name),
+        os.path.join(project_root, arch_lib_name),
+        os.path.join(_here, "..", arch_lib_name),
+
+        # Then check for generic libraries
+        os.path.join(project_root, "lib", generic_lib_name),
+        os.path.join(project_root, "build", generic_lib_name),
+        os.path.join(project_root, "cmake-build-debug", generic_lib_name),
+        os.path.join(project_root, generic_lib_name),
+        os.path.join(_here, "..", generic_lib_name),
+
+        # Windows-specific paths
+        os.path.join(project_root, "lib", f"hsd-{arch}.dll") if system == "Windows" else "",
+        os.path.join(project_root, "build", f"hsd-{arch}.dll") if system == "Windows" else "",
+        os.path.join(project_root, "cmake-build-debug", f"hsd-{arch}.dll") if system == "Windows" else "",
+        os.path.join(project_root, "lib", "hsd.dll") if system == "Windows" else "",
+        os.path.join(project_root, "build", "hsd.dll") if system == "Windows" else "",
+        os.path.join(project_root, "cmake-build-debug", "hsd.dll") if system == "Windows" else "",
     ]
+
     for path in filter(None, build_paths):
         if os.path.exists(path):
             print(f"Info: Found library via development path: '{path}'", file=sys.stderr)
             try:
-                return ctypes.CDLL(path) if platform.system() != "Windows" else ctypes.WinDLL(path)
+                loaded_lib = ctypes.CDLL(path) if system != "Windows" else ctypes.WinDLL(path)
+                lib_info["lib_path"] = path
+                return loaded_lib, lib_info
             except OSError as e:
-                print(f"Warning: Found library at '{path}' but failed to load: {e}",
+                print(f"Warning: Found library at '{path}' but failed to load: {e}", file=sys.stderr)
+
+    # Try find_library for both architecture-specific and generic names
+    for lib_name in [f"hsd-{arch}", "hsd"]:
+        found_path = find_library(lib_name)
+        if found_path:
+            print(f"Info: Found library via find_library: '{found_path}'", file=sys.stderr)
+            try:
+                loaded_lib = ctypes.CDLL(found_path) if system != "Windows" else ctypes.WinDLL(found_path)
+                lib_info["lib_path"] = found_path
+                return loaded_lib, lib_info
+            except OSError as e:
+                print(f"Warning: Found library '{found_path}' via find_library but failed to load: {e}",
                       file=sys.stderr)
 
-    found_path = find_library("hsd")
-    if found_path:
-        print(f"Info: Found library via find_library: '{found_path}'", file=sys.stderr)
+    # Last resort: try system default search
+    print(f"Info: Trying system default search for architecture-specific or generic library...", file=sys.stderr)
+    for lib_name in [arch_lib_name, generic_lib_name]:
         try:
-            return ctypes.CDLL(found_path) if platform.system() != "Windows" else ctypes.WinDLL(
-                found_path)
-        except OSError as e:
-            raise ImportError(
-                f"Found library '{found_path}' via find_library but failed to load: {e}") from e
+            loaded_lib = ctypes.CDLL(lib_name) if system != "Windows" else ctypes.WinDLL(lib_name)
+            lib_info["lib_path"] = lib_name  # This may not be a full path
+            return loaded_lib, lib_info
+        except OSError:
+            pass
 
-    print(f"Info: Trying system default search for '{lib_name}' or 'hsd.dll'...", file=sys.stderr)
-    try:
-        return ctypes.CDLL(lib_name) if platform.system() != "Windows" else ctypes.WinDLL("hsd.dll")
-    except OSError as e:
-        if platform.system() == "Windows":
+    # Windows-specific fallbacks
+    if system == "Windows":
+        for dll_name in [f"hsd-{arch}.dll", "hsd.dll"]:
             try:
-                return ctypes.WinDLL(lib_name)
+                loaded_lib = ctypes.WinDLL(dll_name)
+                lib_info["lib_path"] = dll_name  # This may not be a full path
+                return loaded_lib, lib_info
             except OSError:
                 pass
 
-        raise OSError(
-            f"Could not load hsdlib ('{lib_name}' or 'hsd.dll'). Searched package dir, HSDLIB_PATH, common build directories, "
-            "and system paths. Please ensure the library is compiled and accessible."
-        ) from e
+    raise OSError(
+        f"Could not load hsdlib. Searched for both architecture-specific ('{arch_lib_name}') and "
+        f"generic ('{generic_lib_name}') libraries in package dir, HSDLIB_PATH, common build directories, "
+        "and system paths. Please ensure the library is compiled and accessible."
+    )
 
 
-_lib = _load_hsd_library()
+_lib, _lib_info = _load_hsd_library()
+
+
+def get_library_info():
+    """
+    Return information about the currently loaded HSD library.
+
+    Returns:
+        dict: Dictionary containing library information including path,
+              architecture, and loading details.
+    """
+    info = _lib_info.copy()
+
+    # Add backend information if available
+    if hsd_get_backend:
+        try:
+            backend_bytes = hsd_get_backend()
+            if backend_bytes:
+                info["backend"] = backend_bytes.decode('utf-8')
+            else:
+                info["backend"] = "unknown"
+        except Exception:
+            info["backend"] = "error retrieving backend info"
+    else:
+        info["backend"] = "function not available"
+
+    return info
+
 
 c_float_p = POINTER(c_float)
 c_size_t = c_size_t

@@ -8,14 +8,13 @@
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/tests_amd64.yml?label=tests&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/tests_amd64.yml)
 [![Benches](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/benches_amd64.yml?label=benches&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/benches_amd64.yml)
-[![Lints](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/lints.yml?label=lints&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/lints.yml)
 [![Code Coverage](https://img.shields.io/codecov/c/github/habedi/hsdlib?label=coverage&style=flat&labelColor=282c34&logo=codecov)](https://codecov.io/gh/habedi/hsdlib)
 [![CodeFactor](https://img.shields.io/codefactor/grade/github/habedi/hsdlib?label=code%20quality&style=flat&labelColor=282c34&logo=codefactor)](https://www.codefactor.io/repository/github/habedi/hsdlib)
 [![Docs](https://img.shields.io/badge/docs-latest-007ec6?label=docs&style=flat&labelColor=282c34&logo=readthedocs)](docs)
 [![License](https://img.shields.io/badge/license-MIT-007ec6?label=license&style=flat&labelColor=282c34&logo=open-source-initiative)](https://github.com/habedi/hsdlib)
 [![Release](https://img.shields.io/github/release/habedi/hsdlib.svg?label=release&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/releases/latest)
 
-Hardware-accelerated distance metrics and similarity measures in C
+Hardware-accelerated distance metrics and similarity measures for high-dimensional data
 
 </div>
 
@@ -23,7 +22,7 @@ Hardware-accelerated distance metrics and similarity measures in C
 
 Hsdlib is a C library that provides hardware-accelerated implementations of popular distance metrics and
 similarity measures for high-dimensional data.
-It automatically picks the optimal implementation (AVX, AVX2, AVX512, NEON, or SVE) at runtime based on the
+It automatically picks the optimal implementation (AVX/AVX2/AVX512 or NEON/SVE) at runtime based on the
 available CPU features.
 
 ### Features
@@ -32,8 +31,9 @@ available CPU features.
 - Support for popular distances and similarity measures
     - Squared Euclidean, Manhattan, Hamming distances
     - Dot-product, Cosine, Jaccard similarities
-- Support for AMD64 (AMD and Intel) and AArch64 (ARM) CPUs
+- Support AMD, Intel, and ARM CPUs
 - Support for runtime dispatch with optional manual override
+- Bindings for Python (see [HsdPy](bindings/python))
 - Compatible with C11 and later
 
 ---
@@ -55,14 +55,13 @@ ls lib # Check the built libraries (libhsd.so, libhsd.a, etc.)
 ```
 
 After the build is complete, you can include the [hsdlib.h](include/hsdlib.h) header file in your C (or C++) code and
-link against
-the libraries in the `lib` directory.
+link against the libraries in the `lib` directory.
 
 ### Examples
 
-| File                                            | Description                              |
-|:------------------------------------------------|:-----------------------------------------|
-| [hsdlib_example.c](examples/c/hsdlib_example.c) | Example usages of Hsdlib API (C version) |
+| File                                            | Description                   |
+|:------------------------------------------------|:------------------------------|
+| [hsdlib_example.c](examples/c/hsdlib_example.c) | Example usages of Hsdlib API. |
 
 To compile and run the example(s), use the `make example` command.
 
@@ -73,16 +72,16 @@ To generate the documentation, use the `make doc` command and then open the `doc
 
 #### API Summary
 
-| Distance or Similarity Function        | Description                                                                                                           |
-|:---------------------------------------|:----------------------------------------------------------------------------------------------------------------------|
-| `hsd_dist_sqeuclidean_f32(a, b, n, r)` | Compute squared Euclidean ($L2^2$) distance between two float vectors.                                                |
-| `hsd_dist_manhattan_f32(a, b, n, r)`   | Compute Manhattan ($L1$) distance between two float vectors.                                                          |
-| `hsd_dist_hamming_u8(a, b, n, r)`      | Compute Hamming distance between two binary or non-binary byte vectors.                                               |
-| `hsd_sim_dot_f32(a, b, n, r)`          | Compute dot product similarity between two float vectors.                                                             |
-| `hsd_sim_cosine_f32(a, b, n, r)`       | Compute cosine similarity between two float vectors.                                                                  |
-| `hsd_sim_jaccard_u16(a, b, n, r)`      | Compute Jaccard similarity between two binary vectors. If vectors are not binary, Tanimoto coefficient is calculated. |
+| Distance or Similarity Function | Description                                                                                                           |
+|:--------------------------------|:----------------------------------------------------------------------------------------------------------------------|
+| `hsd_dist_sqeuclidean_f32(...)` | Compute squared Euclidean ($L2^2$) distance between two float vectors.                                                |
+| `hsd_dist_manhattan_f32(...)`   | Compute Manhattan ($L1$) distance between two float vectors.                                                          |
+| `hsd_dist_hamming_u8(...)`      | Compute Hamming distance between two binary or non-binary byte vectors.                                               |
+| `hsd_sim_dot_f32(...)`          | Compute dot product similarity between two float vectors.                                                             |
+| `hsd_sim_cosine_f32(...)`       | Compute cosine similarity between two float vectors.                                                                  |
+| `hsd_sim_jaccard_u16(...)`      | Compute Jaccard similarity between two binary vectors. If vectors are not binary, Tanimoto coefficient is calculated. |
 
-The distance and similarity functions take the following parameters:
+The distance and similarity functions accept the following parameters in order:
 
 - `a`: Pointer to the first input vector (array of floats or bytes).
 - `b`: Pointer to the second input vector (array of floats or bytes).
@@ -128,10 +127,10 @@ The return type of the distance and similarity functions is `hsd_status_t`, whic
 ```c
 typedef enum {
     HSD_SUCCESS               =  0,  // Operation was successful (e.g. result in *r is valid)
-    HSD_ERR_NULL_PTR          = -1,  // NULL pointer encountered (in inout or output)
-    HSD_ERR_INVALID_INPUT     = -3,  // NaN or Inf encountered
+    HSD_ERR_NULL_PTR          = -1,  // NULL pointer encountered (e.g. a or b is NULL)
+    HSD_ERR_INVALID_INPUT     = -3,  // NaN or Inf value encountered (e.g. a or b contains NaN or Inf)
     HSD_ERR_CPU_NOT_SUPPORTED = -4,  // CPU does not support the required instruction set
-    HSD_FAILURE               = -99  // An unknown error occurred (should not happen normally)
+    HSD_FAILURE               = -99  // A generic failure occurred (e.g. unknown error)
 } hsd_status_t;
 ```
 
@@ -139,8 +138,8 @@ The `hsd_fp_status_t` struct is defined as follows:
 
 ```c
 typedef struct {
-    int ftz_enabled; // Flush-to-zero mode enabled (1) or disabled (0)
-    int daz_enabled; // Denormals-are-zero mode enabled (1) or disabled (0)
+    int ftz_enabled; // (1) If flush-to-zero mode is enabled, (0) otherwise
+    int daz_enabled; // (1) If denormals-are-zero mode is enabled, (0) otherwise
 } hsd_fp_status_t;
 ```
 
@@ -148,20 +147,20 @@ The `HSD_Backend` enum is defined as follows:
 
 ```c
 typedef enum {
-    HSD_BACKEND_AUTO = 0, // Default (auto-selected at runtime).
-    HSD_BACKEND_SCALAR, // Fallback scalar (portable) backend.
+    HSD_BACKEND_AUTO = 0, // Backend is automatically selected at runtime (default)
+    HSD_BACKEND_SCALAR, // Fallback scalar backend (no SIMD instructions)
     
     /* AMD64 backends */
-    HSD_BACKEND_AVX, // Backend for AMD64 CPUs with AVX support
-    HSD_BACKEND_AVX2, // Backend for AMD64 CPUs with AVX2 support
-    HSD_BACKEND_AVX512F, // Backend for AMD64 CPUs with AVX512F support
-    HSD_BACKEND_AVX512BW, // Backend for AMD64 CPUs with AVX512BW support
-    HSD_BACKEND_AVX512DQ, // Backend for AMD64 CPUs with AVX512DQ support
-    HSD_BACKEND_AVX512VPOPCNTDQ, // Backend for AMD64 CPUs with AVX512VPOPCNTDQ support
+    HSD_BACKEND_AVX, // AVX backend
+    HSD_BACKEND_AVX2, // AVX2 backend
+    HSD_BACKEND_AVX512F, // AVX512F backend
+    HSD_BACKEND_AVX512BW, // AVX512BW backend
+    HSD_BACKEND_AVX512DQ, // AVX512DQ backend
+    HSD_BACKEND_AVX512VPOPCNTDQ, // AVX512VPOPCNTDQ backend
     
     /* AArch64 backends */
-    HSD_BACKEND_NEON, // Backend for AArch64 CPUs with NEON support
-    HSD_BACKEND_SVE // Backend for AArch64 CPUs with SVE support
+    HSD_BACKEND_NEON, // NEON backend
+    HSD_BACKEND_SVE // SVE backend
 } HSD_Backend;
 ```
 
@@ -175,10 +174,10 @@ In case the CPU does not support the required instruction set, the function will
 
 ### Tests and Benchmarks
 
-| File                  | Description               |
-|:----------------------|:--------------------------|
-| [`tests`](tests/)     | Unit tests for Hsdlib API |
-| [`benches`](benches/) | Benchmarks for the API    |
+| File                  | Description                |
+|:----------------------|:---------------------------|
+| [`tests`](tests/)     | Unit tests for Hsdlib API. |
+| [`benches`](benches/) | Benchmarks for Hsdlib API. |
 
 To run the tests and benchmarks, use the `make test` and `make bench` commands.
 

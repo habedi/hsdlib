@@ -1,5 +1,5 @@
 ## Examples
 
-| Directory | Description                         |
-|-----------|-------------------------------------|
-| [`c`](c/) | Examples for Hsdlib API (C version) |
+| Directory | Description                                                         |
+|-----------|---------------------------------------------------------------------|
+| [`c`](c/) | Example usages of distance functions and similarity functions in C. |

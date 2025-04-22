@@ -3,6 +3,7 @@ import numpy as np
 
 # Import the low-level bindings from the sibling file
 from . import _ctypes_bindings as ct
+from ._ctypes_bindings import get_library_info
 
 
 # --- Error Handling ---
@@ -309,6 +310,7 @@ __all__ = [
     "sim_jaccard_u16",
     "get_backend",
     "HsdError",
+    "get_library_info"
 ]
 
 # Add version information

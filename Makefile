@@ -291,6 +291,23 @@ python-clean: ## Clean Python-specific build artifacts and caches
 	@rm -f '.coverage' 'coverage.xml'
 	@echo "Python clean complete"
 
+.PHONY: python-publish
+python-publish: ## Publish wheel package to PyPI using API token
+	@echo "Publishing Python wheel to PyPI..."
+	@if [ -z "$$PYPI_TOKEN" ]; then \
+		echo "ERROR: PYPI_TOKEN environment variable is not set"; \
+		echo "Please set it with: export PYPI_TOKEN=your_token"; \
+		exit 1; \
+	fi
+	$(eval WHEEL_FILE := $(shell find $(PYTHON_DIST_DIR) -type f -name '*.whl' | head -n 1))
+	@if [ -z "$(WHEEL_FILE)" ]; then \
+		echo "ERROR: No wheel found in $(PYTHON_DIST_DIR)"; \
+		exit 1; \
+	fi
+	@echo "Found wheel: $(WHEEL_FILE)"
+	@uv publish --token "$$PYPI_TOKEN" "$(WHEEL_FILE)"
+	@echo "Package published to PyPI successfully"
+
 ####################################################################################################
 ## Development Tools
 ####################################################################################################
