@@ -251,6 +251,7 @@ python-setup: ## Set up Python environment for building and testing
 	@command -v python3 >/dev/null 2>&1 || { echo "Error: 'python3' command not found. Please install Python 3."; exit 1; }
 	@command -v pip3 >/dev/null 2>&1 || { echo "Error: 'pip3' command not found. Please install pip for Python 3."; exit 1; }
 	@pip3 install -U uv
+	@uv sync
 	@uv pip install -e ".[dev]"
 	@echo "Python environment setup complete"
 
@@ -264,7 +265,7 @@ python-build: rebuild ## Build Python wheel package for distribution
 	@echo "Python wheel build complete"
 
 .PHONY: python-install
-python-install: python-build ## Install the Python wheel package locally
+python-install: ## Install the Python wheel package locally
 	@echo "Installing Python wheel..."
 	@command -v uv >/dev/null 2>&1 || { echo "Error: 'uv' command not found. Please install with 'pip install -U uv'."; exit 1; }
 	$(eval WHEEL_FILE := $(shell find $(PYTHON_DIST_DIR) -type f -name '*.whl' | head -n 1))

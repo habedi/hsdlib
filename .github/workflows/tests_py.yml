@@ -1,4 +1,6 @@
-name: Build and Release Hsdlib (AMD64)
+name: Build Python Wheel (Linux, macOS, Windows; AMD64)
+
+# macos-13 is AMD64; macos-latest is ARM64
 
 on:
   workflow_dispatch: # Allow manual execution
@@ -8,123 +10,131 @@ on:
 
 permissions:
   contents: write
+
 jobs:
-  build-linux:
-    name: Build Linux (amd64)
-    runs-on: ubuntu-latest
+  build-libraries:
+    name: Build Libraries (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-13, windows-latest ]
+        include:
+          - os: ubuntu-latest
+            lib-name: libhsd.so
+          - os: macos-13
+            lib-name: libhsd.dylib
+          - os: windows-latest
+            lib-name: hsd.dll
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Build Tools
+      - name: Install Build Tools (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential make gcc
 
-      - name: Build Linux Shared Library (.so)
-        run: make build-release
+      - name: Install Build Tools (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          xcode-select --install || echo "Xcode Command Line Tools already installed"
+          brew install make gcc
 
-      - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: libhsd-linux-amd64
-          path: lib/libhsd.so
-
-  build-macos:
-    name: Build macOS (amd64)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Check Xcode Command Line Tools
-        run: xcode-select --install || echo "Xcode Command Line Tools already installed"
-        shell: bash
-
-      - name: Install Additional Build Tools
-        run: brew install make gcc
-        shell: bash
-
-      - name: Build macOS Shared Library (.dylib)
-        run: make build-release
-
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: libhsd-macos-amd64
-          path: lib/libhsd.dylib
-
-  build-windows:
-    name: Build Windows (amd64)
-    runs-on: windows-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Install Build Tools (MinGW + Make)
+      - name: Install Build Tools (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
           choco install mingw make --no-progress -y
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         shell: powershell
 
-      # Add MinGW bin to PATH
-      - name: Add MinGW to PATH
-        run: echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        shell: powershell
-
-      - name: Build Windows Shared Library (.dll)
+      - name: Build Library
         run: make build-release
         shell: bash
 
-      - name: Upload Windows Artifact
+      - name: Upload Library Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: libhsd-windows-amd64
-          path: lib/hsd.dll
+          name: ${{ matrix.lib-name }}
+          path: lib/${{ matrix.lib-name }}
 
-  release:
-    name: Create GitHub Release
+  build-wheel:
+    name: Build Python Wheel
+    needs: build-libraries
     runs-on: ubuntu-latest
-    needs: [ build-linux, build-macos, build-windows ]
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write # Needed to create releases and upload assets
 
     steps:
-      - name: Download Linux Artifact
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Linux Library
         uses: actions/download-artifact@v4
         with:
-          name: libhsd-linux-amd64
-          path: ./release_assets/linux
+          name: libhsd.so
+          path: bindings/python/hsdpy/
 
-      - name: Download macOS Artifact
+      - name: Download macOS Library
         uses: actions/download-artifact@v4
         with:
-          name: libhsd-macos-amd64
-          path: ./release_assets/macos
+          name: libhsd.dylib
+          path: bindings/python/hsdpy/
 
-      - name: Download Windows Artifact
+      - name: Download Windows Library
         uses: actions/download-artifact@v4
         with:
-          name: libhsd-windows-amd64
-          path: ./release_assets/windows
+          name: hsd.dll
+          path: bindings/python/hsdpy/
 
-      - name: List Downloaded Files (for debugging)
-        run: ls -R ./release_assets
+      - name: List Downloaded Libraries
+        run: ls -la bindings/python/hsdpy/
+        shell: bash
 
-      - name: Package All Artifacts into a Single Zip File
+      - name: Set up Python
         run: |
-          cd release_assets
-          # Create a single zip containing the libraries within their OS folders
-          zip -r ../hsdlib-amd64-binaries.zip linux/libhsd.so macos/libhsd.dylib windows/libhsd.dll
-          cd ..
+          sudo apt-get update
+          sudo apt-get install -y make python3-pip python3-venv
+          make python-setup
 
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+      - name: Run Python Tests
+        run: |
+          uv build --wheel --out-dir dist
+          make python-install
+          make python-test
+          tree
+
+      - name: Upload Wheel Artifact
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: ./hsdlib-amd64-binaries.zip # Upload the single zip file
-          tag: ${{ github.ref_name }} # Use the tag that triggered the workflow
-          name: Release ${{ github.ref_name }}
-          body: "Automated release build for hsdlib version ${{ github.ref_name }}. Contains amd64 shared libraries for Linux (.so), macOS (.dylib), and Windows (.dll)."
-          draft: false
-          prerelease: false # Set to true if these are pre-releases
+          name: python-wheel
+          path: dist/*.whl
+
+#  release:
+#    name: Create GitHub Release
+#    runs-on: ubuntu-latest
+#    needs: [build-libraries, build-wheel]
+#    if: startsWith(github.ref, 'refs/tags/')
+#
+#    steps:
+#      - name: Download All Artifacts
+#        uses: actions/download-artifact@v4
+#        with:
+#          path: ./release_assets
+#
+#      - name: List Downloaded Files
+#        run: ls -R ./release_assets
+#
+#      - name: Package All Artifacts
+#        run: |
+#          zip -r hsdlib-complete-package.zip ./release_assets/*
+#
+#      - name: Create GitHub Release
+#        uses: ncipollo/release-action@v1
+#        with:
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          artifacts: ./hsdlib-complete-package.zip
+#          tag: ${{ github.ref_name }}
+#          name: Release ${{ github.ref_name }}
+#          body: "Automated release build for hsdlib version ${{ github.ref_name }}. Contains shared libraries and Python wheel."
+#          draft: false
+#          prerelease: false
