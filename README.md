@@ -10,7 +10,6 @@
 [![Benches](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/benches_amd64.yml?label=benches&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/benches_amd64.yml)
 [![Code Coverage](https://img.shields.io/codecov/c/github/habedi/hsdlib?label=coverage&style=flat&labelColor=282c34&logo=codecov)](https://codecov.io/gh/habedi/hsdlib)
 [![CodeFactor](https://img.shields.io/codefactor/grade/github/habedi/hsdlib?label=code%20quality&style=flat&labelColor=282c34&logo=codefactor)](https://www.codefactor.io/repository/github/habedi/hsdlib)
-[![Docs](https://img.shields.io/badge/docs-latest-007ec6?label=docs&style=flat&labelColor=282c34&logo=readthedocs)](docs)
 [![License](https://img.shields.io/badge/license-MIT-007ec6?label=license&style=flat&labelColor=282c34&logo=open-source-initiative)](https://github.com/habedi/hsdlib)
 [![Release](https://img.shields.io/github/release/habedi/hsdlib.svg?label=release&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/releases/latest)
 
@@ -30,9 +29,9 @@ available CPU features.
 - Simple unified API (see [hsdlib.h](include/hsdlib.h))
 - Support for popular distances and similarity measures
     - Squared Euclidean, Manhattan, Hamming distances
-    - Dot-product, Cosine, Jaccard similarities
-- Support AMD, Intel, and ARM CPUs
-- Support for runtime dispatch with optional manual override
+    - Dot-product, cosine, Jaccard similarities
+- Support for the AMD, Intel, and ARM CPUs
+- Support for runtime dispatch to the best SIMD backend with optional manual override
 - Bindings for Python (see [HsdPy](bindings/python))
 - Compatible with C11 and later
 
@@ -66,33 +65,37 @@ link against the libraries in the `lib` directory.
 
 To compile and run the example(s), use the `make example` command.
 
+---
+
 ### Documentation
 
 API documentation can be generated using [Doxygen](https://www.doxygen.nl).
-To generate the documentation, use the `make doc` command and then open the `doc/html/index.html` file in a web browser.
+To generate the documentation, use the `make doc` command and then open the `doc/html/index.html` file in a web browser
+to see it.
 
 #### API Summary
 
 | Distance or Similarity Function | Description                                                                                                                               |
 |:--------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------|
-| `hsd_dist_sqeuclidean_f32(...)` | Compute squared Euclidean ($L2^2$) distance between two float vectors.                                                                    |
-| `hsd_dist_manhattan_f32(...)`   | Compute Manhattan ($L1$) distance between two float vectors.                                                                              |
+| `hsd_dist_sqeuclidean_f32(...)` | Compute squared Euclidean ($L_2^2$) distance between two float vectors.                                                                   |
+| `hsd_dist_manhattan_f32(...)`   | Compute Manhattan ($L_1$) distance between two float vectors.                                                                             |
 | `hsd_dist_hamming_u8(...)`      | Compute Hamming distance between two binary or non-binary byte vectors.                                                                   |
 | `hsd_sim_dot_f32(...)`          | Compute dot product similarity between two float vectors.                                                                                 |
 | `hsd_sim_cosine_f32(...)`       | Compute cosine similarity between two float vectors.                                                                                      |
 | `hsd_sim_jaccard_u16(...)`      | Compute Jaccard similarity between two binary vectors. If vectors are not binary (positive integers), Tanimoto coefficient is calculated. |
 
-The distance and similarity functions accept the following parameters in order:
+The distance and similarity functions (functions that their names start with `hsd_dist_` or `hsd_sim_`) accept the
+following parameters in order:
 
 - `a`: Pointer to the first input vector (array of floats or bytes).
 - `b`: Pointer to the second input vector (array of floats or bytes).
 - `n`: Number of elements in the input vectors.
 - `r`: Pointer to the output variable where the result will be stored.
 
-All the functions that their names start with `hsd_dist_` or `hsd_sim_` return `hsd_status_t` as the return type.
+All the distance and similarity functions return `hsd_status_t` as the return type.
 The `HSD_SUCCESS` status indicates that the result is valid and stored in the output pointer `r`.
 Anything else indicates an error.
-Check out the **Types and Enums** section below for more details.
+Check out the **Types and Enums** section for more details.
 
 > [!NOTE]
 > **N1**: Euclidean distance can easily be calculated from the squared Euclidean
@@ -109,9 +112,13 @@ Check out the **Types and Enums** section below for more details.
 > - Negative dot product = $-\text{dot}(a, b)$
 >
 > **N4**: Tanimoto coefficient formula is used to calculate the Jaccard similarity.
-> Note that the formula gives the jaccard similarity for binary vectors.
+> Note that the formula gives the Jaccard similarity for binary vectors.
 > However, for non-binary vectors, the calculated similarity measure would be Tanimoto coefficient rather than Jaccard
 > similarity.
+>
+> **N5**: The implementation of the cosine similarity normalizes the input vectors to unit length ($L_2$ norm = 1)
+> before
+> calculating the cosine similarity.
 
 | Utility Function                   | Return Type       | Description                                                                                           |
 |:-----------------------------------|:------------------|:------------------------------------------------------------------------------------------------------|
@@ -121,7 +128,7 @@ Check out the **Types and Enums** section below for more details.
 | `hsd_set_manual_backend(backend)`  | `hsd_status_t`    | Override backend auto‑dispatch mechanism and force a specific backend to be used (e.g. AVX2 or NEON). |
 | `hsd_get_current_backend_choice()` | `HSD_Backend`     | Get the current backend that is being used.                                                           |
 
-### Types and Enums
+#### Types and Enums
 
 The return type of the distance and similarity functions is `hsd_status_t`, which is defined as follows:
 
@@ -130,7 +137,7 @@ typedef enum {
     HSD_SUCCESS               =  0,  // Operation was successful (e.g. result in *r is valid)
     HSD_ERR_NULL_PTR          = -1,  // NULL pointer encountered (e.g. a or b is NULL)
     HSD_ERR_INVALID_INPUT     = -3,  // NaN or Inf value encountered (e.g. a or b contains NaN or Inf)
-    HSD_ERR_CPU_NOT_SUPPORTED = -4,  // CPU does not support the required instruction set
+    HSD_ERR_CPU_NOT_SUPPORTED = -4,  // CPU does not support the required SIMD instruction set
     HSD_FAILURE               = -99  // A generic failure occurred (e.g. unknown error)
 } hsd_status_t;
 ```
@@ -151,7 +158,7 @@ typedef enum {
     HSD_BACKEND_AUTO = 0, // Backend is automatically selected at runtime (default)
     HSD_BACKEND_SCALAR, // Fallback scalar backend (no SIMD instructions)
     
-    /* AMD64 backends */
+    /* AMD64 (AKA X86_64) backends */
     HSD_BACKEND_AVX, // AVX backend
     HSD_BACKEND_AVX2, // AVX2 backend
     HSD_BACKEND_AVX512F, // AVX512F backend
@@ -159,7 +166,7 @@ typedef enum {
     HSD_BACKEND_AVX512DQ, // AVX512DQ backend
     HSD_BACKEND_AVX512VPOPCNTDQ, // AVX512VPOPCNTDQ backend
     
-    /* AArch64 backends */
+    /* AArch64 (AKA ARM64) backends */
     HSD_BACKEND_NEON, // NEON backend
     HSD_BACKEND_SVE // SVE backend
 } HSD_Backend;

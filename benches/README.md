@@ -1,5 +1,5 @@
 ## Benchmarks
 
-| Directory | Description                                                      |
-|-----------|------------------------------------------------------------------|
-| [`c`](c/) | Benchmarks for distance functions and similarity functions in C. |
+| Directory | Description               |
+|-----------|---------------------------|
+| [`c`](c/) | Benchmarks for Hsdlib API |
