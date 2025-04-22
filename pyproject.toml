@@ -1,12 +1,12 @@
 [project]
 name = "hsdpy"
-version = "0.1.0"
+version = "0.1.0-beta.2"
 description = "Python bindings for the Hsdlib library"
 authors = [
     { name = "Hassan Abedi", email = "hassan.abedi.t+hsdlib@gmail.com" },
 ]
 requires-python = ">=3.10"
-readme = "README.md"
+readme = "bindings/python/README.md"
 license = { text = "MIT" }
 keywords = ["python binding", "simd", "distance metrics", "similarity measures"]
 classifiers = [
@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "numpy>=2.2.5",
+    "numpy>=2.0.0",
 ]
 
 [project.optional-dependencies]

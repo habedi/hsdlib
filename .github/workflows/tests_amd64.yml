@@ -1,4 +1,4 @@
-name: Run Test (AMD64)
+name: Run Tests (Linux; AMD64)
 
 on:
   workflow_dispatch:  # Allow manual runs
@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -1,5 +1,6 @@
 ## Examples
 
-| Directory | Description                         |
-|-----------|-------------------------------------|
-| [`c`](c/) | Examples for Hsdlib API (C version) |
+| Directory                              | Description                  |
+|----------------------------------------|------------------------------|
+| [`hsdlib_example.c`](hsdlib_example.c) | Example usages of Hsdlib API |
+| [`hsdpy_example.py`](hsdpy_example.py) | Example usages of HsdPy API  |

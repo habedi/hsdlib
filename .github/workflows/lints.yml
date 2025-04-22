@@ -1,4 +1,4 @@
-name: Run Linters
+name: Run Linter Checks
 
 on:
   workflow_dispatch:  # Allow manual runs
@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest

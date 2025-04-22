@@ -1,33 +1,141 @@
-name: Publish HsdPy to PyPI
+name: Build and Publish HsdPy To PyPI
 
 on:
-  workflow_dispatch:  # Allow manual runs
+  workflow_dispatch: # Allow manual execution
   push:
     tags:
-      - 'v*'  # Trigger on version tags
+      - 'v*' # Trigger on version tags
 
 permissions:
-  contents: read
+  contents: write
+
 jobs:
-  build:
+  build-libraries:
+    name: Build Libraries (${{ matrix.os }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # AMD64 builds
+          - os: ubuntu-latest
+            lib-name: libhsd.so
+            arch: amd64
+            artifact-name: libhsd-amd64.so
+          - os: macos-13
+            lib-name: libhsd.dylib
+            arch: amd64
+            artifact-name: libhsd-amd64.dylib
+          - os: windows-latest
+            lib-name: hsd.dll
+            arch: amd64
+            artifact-name: hsd-amd64.dll
+
+          # ARM64 builds
+          - os: ubuntu-latest
+            lib-name: libhsd.so
+            arch: arm64
+            artifact-name: libhsd-arm64.so
+            build-flags: ARCH=arm64
+          - os: macos-latest
+            lib-name: libhsd.dylib
+            arch: arm64
+            artifact-name: libhsd-arm64.dylib
+          - os: windows-latest
+            lib-name: hsd.dll
+            arch: arm64
+            artifact-name: hsd-arm64.dll
+            build-flags: ARCH=arm64
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Tools (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make gcc
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+
+      - name: Install Build Tools (macOS)
+        if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
+        run: |
+          xcode-select --install || echo "Xcode Command Line Tools already installed"
+          brew install make gcc
+
+      - name: Install Build Tools (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install mingw make --no-progress -y
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: powershell
+
+      - name: Build Library
+        run: make build-release ${{ matrix.build-flags || '' }}
+        shell: bash
+
+      - name: Rename Built Library
+        run: |
+          if [ -f "lib/${{ matrix.lib-name }}" ]; then
+            cp lib/${{ matrix.lib-name }} lib/${{ matrix.artifact-name }}
+          fi
+        shell: bash
+
+      - name: Upload Library Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: lib/${{ matrix.artifact-name }}
+
+  build-wheel:
+    name: Build Python Wheel
+    needs: build-libraries
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Download All Libraries
+        uses: actions/download-artifact@v4
+        with:
+          path: temp-libs/
+
+      - name: Setup Library Directory
+        run: |
+          mkdir -p bindings/python/hsdpy/
+          cp temp-libs/libhsd-amd64.so/libhsd-amd64.so bindings/python/hsdpy/
+          cp temp-libs/libhsd-arm64.so/libhsd-arm64.so bindings/python/hsdpy/
+          cp temp-libs/libhsd-amd64.dylib/libhsd-amd64.dylib bindings/python/hsdpy/
+          cp temp-libs/libhsd-arm64.dylib/libhsd-arm64.dylib bindings/python/hsdpy/
+          cp temp-libs/hsd-amd64.dll/hsd-amd64.dll bindings/python/hsdpy/
+          cp temp-libs/hsd-arm64.dll/hsd-arm64.dll bindings/python/hsdpy/
+          ls -la bindings/python/hsdpy/
+        shell: bash
+
+      - name: Set up Python
         run: |
           sudo apt-get update
-          sudo apt-get install -y make
-          make install-deps
+          sudo apt-get install -y make python3-pip python3-venv
+          make python-setup
 
-      - name: Run Tests for HsdPy
+      - name: Run Python Tests
         run: |
+          uv build --wheel --out-dir dist
           make python-install
-          make python-tests
+          make python-test
+          tree
 
-      - name: Upload Coverage Reports to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Publish HsdPy to PyPI
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          make python-publish
+
+      - name: Upload Wheel Artifact
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          name: python-wheel
+          path: dist/*.whl

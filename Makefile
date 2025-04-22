@@ -44,6 +44,12 @@ ifeq ($(OS),Darwin)
     STATIC_LIB_EXT     := a
     EXE_EXT            :=
 endif
+ifneq (,$(filter Windows_NT MINGW%,$(OS)))
+    SHARED_LIB_EXT     := dll
+    SHARED_LIB_PREFIX  :=
+    STATIC_LIB_EXT     := lib
+    EXE_EXT            := .exe
+endif
 
 SHARED_LIB_FILENAME ?= $(SHARED_LIB_PREFIX)hsd.$(SHARED_LIB_EXT)
 STATIC_LIB_FILENAME ?= $(SHARED_LIB_PREFIX)hsd.$(STATIC_LIB_EXT)
@@ -125,11 +131,23 @@ $(BIN_DIR) $(LIB_DIR) $(DOC_DIR) $(TARGET_DIR) $(LIB_OBJ_DIRS):
 ####################################################################################################
 .PHONY: build
 build: $(STATIC_LIB) $(SHARED_LIB) ## Build both static and shared libraries (C compilation method)
+	@echo "Build parameters:"
+	@echo "  - Build type: $(BUILD_TYPE)"
+	@echo "  - Compiler: $(CC)"
+	@echo "  - Static library: $(STATIC_LIB)"
+	@echo "  - Shared library: $(SHARED_LIB)"
+	@echo "  - OS: $(OS)"
+	@echo "  - Architecture: $(ARCH)"
 	@echo "Build complete: static and shared libraries ready"
 
 .PHONY: rebuild
 rebuild: clean build ## Perform a complete rebuild: clean all artifacts and rebuild from scratch
 	@echo "Rebuild complete"
+
+.PHONY: build-release
+build-release: ## Build the library in release mode (optimized; without debug symbols)
+	@echo "Building library in release mode for benchmarks..."
+	@$(MAKE) rebuild BUILD_TYPE=release
 
 ####################################################################################################
 ## Library Build Rules
@@ -218,49 +236,6 @@ cov: clean $(TEST_RUNNER) ## Generate code coverage report for C tests
 	@echo "Coverage analysis complete. Reports in $(DOC_DIR)/coverage/"
 
 ####################################################################################################
-## Zig Configuration
-####################################################################################################
-ZIG := zig
-ZIG_BUILD_FLAGS :=
-ifeq ($(BUILD_TYPE),release)
-ZIG_BUILD_FLAGS += -Doptimize=ReleaseFast
-else
-ZIG_BUILD_FLAGS += -Doptimize=Debug
-endif
-ZIG_BUILD_FLAGS += -Dcpu=native
-
-ZIG_CMD     := $(ZIG) build $(ZIG_BUILD_FLAGS)
-ZIG_OUT_BIN := zig-out/bin
-ZIG_OUT_LIB := zig-out/lib
-
-####################################################################################################
-## Zig Build Targets
-####################################################################################################
-.PHONY: zig-build
-zig-build: ## Build both static and shared libraries using Zig
-	@echo "Building libraries via Zig..."
-	@$(ZIG_CMD)
-	@mkdir -p $(LIB_DIR)
-	@cp "$(ZIG_OUT_LIB)/libhsd.a" "$(STATIC_LIB)"
-	@cp "$(ZIG_OUT_LIB)/libhsd.$(SHARED_LIB_EXT)" "$(SHARED_LIB)"
-	@echo "Zig library builds complete"
-
-.PHONY: zig-test
-zig-test: | $(BIN_DIR) ## Build and run C tests using Zig
-	@echo "Building tests via Zig..."
-	@$(ZIG_CMD)
-	@cp "$(ZIG_OUT_BIN)/test_runner" "$(TEST_RUNNER)"
-	@echo "Running Zig-built tests..."
-	@./$(TEST_RUNNER)
-	@echo "Zig test execution complete"
-
-.PHONY: zig-clean
-zig-clean: ## Remove all Zig-specific build artifacts and caches
-	@echo "Cleaning Zig build artifacts..."
-	@rm -rf zig-cache .zig-cache zig-out
-	@echo "Zig clean complete"
-
-####################################################################################################
 ## Python Configuration
 ####################################################################################################
 PYTHON_DIST_DIR := dist
@@ -270,34 +245,38 @@ PYTHON_EGG_INFO := $(shell find . -maxdepth 3 -type d -name '*.egg-info') UNKNOW
 ####################################################################################################
 ## Python Targets
 ####################################################################################################
+.PHONY: python-setup
+python-setup: ## Set up Python environment for building and testing
+	@echo "Setting up Python environment..."
+	@command -v python3 >/dev/null 2>&1 || { echo "Error: 'python3' command not found. Please install Python 3."; exit 1; }
+	@command -v pip3 >/dev/null 2>&1 || { echo "Error: 'pip3' command not found. Please install pip for Python 3."; exit 1; }
+	@pip3 install -U uv
+	@uv sync
+	@uv pip install -e ".[dev]"
+	@echo "Python environment setup complete"
+
 .PHONY: python-build
-python-build: zig-build ## Build Python wheel package for distribution
-	@echo "Building Python wheel..."
-	@if [ ! -f "$(SHARED_LIB)" ]; then \
-	   echo "ERROR: Shared library $(SHARED_LIB) not found!"; \
-	   echo "Please run 'make zig-build' first to build the library via Zig."; \
-	   exit 1; \
-	fi
+python-build: rebuild ## Build Python wheel package for distribution
 	@echo "Using shared lib: $(SHARED_LIB)"
 	@echo "Copying shared lib into Python package..."
 	@mkdir -p $(BINDINGS_DIR)/python/hsdpy
 	@cp "$(LIB_DIR)/$(SHARED_LIB_FILENAME)" $(BINDINGS_DIR)/python/hsdpy/
-	@python -m build --wheel --outdir $(PYTHON_DIST_DIR)
+	@uv build --wheel --out-dir $(PYTHON_DIST_DIR)
 	@echo "Python wheel build complete"
 
 .PHONY: python-install
-python-install: python-build ## Install the Python wheel package locally (needs `uv`)
+python-install: ## Install the Python wheel package locally
 	@echo "Installing Python wheel..."
 	@command -v uv >/dev/null 2>&1 || { echo "Error: 'uv' command not found. Please install with 'pip install -U uv'."; exit 1; }
 	$(eval WHEEL_FILE := $(shell find $(PYTHON_DIST_DIR) -type f -name '*.whl' | head -n 1))
 	@if [ -z "$(WHEEL_FILE)" ]; then \
 	  echo "ERROR: No wheel found"; exit 1; \
 	fi
-	@uv pip install --force-reinstall --no-deps "$(WHEEL_FILE)"
+	@uv pip install --force-reinstall "$(WHEEL_FILE)"
 	@echo "Python wheel installed successfully"
 
 .PHONY: python-test
-python-test: python-build ## Run Python test suite (with code coverage)
+python-test: ## Run Python test suite (with code coverage)
 	@echo "Running Python tests..."
 	@command -v uv >/dev/null 2>&1 || { echo "Error: 'uv' command not found. Please install with 'pip install -U uv'."; exit 1; }
 	@uv run pytest $(BINDINGS_DIR)/python/tests --tb=short --disable-warnings --cov=$(BINDINGS_DIR)/python/hsdpy --cov-branch --cov-report=xml
@@ -306,11 +285,28 @@ python-test: python-build ## Run Python test suite (with code coverage)
 .PHONY: python-clean
 python-clean: ## Clean Python-specific build artifacts and caches
 	@echo "Cleaning Python build artifacts..."
-	@rm -rf $(PYTHON_DIST_DIR) $(PYTHON_BUILD_DIR) $(PYTHON_EGG_INFO) site_packages*
-	@find python -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+	@rm -rf $(PYTHON_DIST_DIR) $(PYTHON_BUILD_DIR) $(PYTHON_EGG_INFO) .pytest_cache
+	@find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 	@find $(BINDINGS_DIR)/python/hsdpy -maxdepth 1 \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -delete 2>/dev/null || true
 	@rm -f '.coverage' 'coverage.xml'
 	@echo "Python clean complete"
+
+.PHONY: python-publish
+python-publish: ## Publish wheel package to PyPI (needs PYPI_TOKEN environment variable)
+	@echo "Publishing Python wheel to PyPI..."
+	@if [ -z "$$PYPI_TOKEN" ]; then \
+		echo "ERROR: PYPI_TOKEN environment variable is not set"; \
+		echo "Please set it with: export PYPI_TOKEN=your_token"; \
+		exit 1; \
+	fi
+	$(eval WHEEL_FILE := $(shell find $(PYTHON_DIST_DIR) -type f -name '*.whl' | head -n 1))
+	@if [ -z "$(WHEEL_FILE)" ]; then \
+		echo "ERROR: No wheel found in $(PYTHON_DIST_DIR)"; \
+		exit 1; \
+	fi
+	@echo "Found wheel: $(WHEEL_FILE)"
+	@uv publish --token "$$PYPI_TOKEN" "$(WHEEL_FILE)"
+	@echo "Package published to PyPI successfully"
 
 ####################################################################################################
 ## Development Tools
@@ -321,24 +317,19 @@ install-deps: ## Install all required dependencies for development
 ifeq ($(OS),Linux)
 ifeq ($(IS_DEBIAN),1)
 	@echo "Detected Debian-based system, using apt-get..."
-	@sudo apt-get update && sudo apt-get install -y gcc clang llvm gdb clang-format cppcheck graphviz doxygen python3-pip snapd
-	@echo "Installing Zig..."
-	@sudo snap install zig --classic --beta
+	@sudo apt-get update
+	@sudo apt-get install -y gcc clang llvm gdb clang-format cppcheck graphviz doxygen python3-pip
 else
 	@echo "Non-Debian Linux detected. Please install the following packages manually:"
 	@echo "- gcc, clang, llvm, gdb, clang-format, cppcheck, graphviz, doxygen, python3-pip"
-	@echo "- zig (from https://ziglang.org/download/)"
 endif
 else ifeq ($(OS),Darwin)
 	@echo "macOS detected, install using brew (assumes brew is installed):"
-	@echo "brew install gcc llvm gdb clang-format cppcheck graphviz doxygen python3 zig"
+	@echo "brew install gcc llvm gdb clang-format cppcheck graphviz doxygen python3"
 else
 	@echo "Unsupported OS for automatic dependency installation"
 	@echo "Please install required tools manually"
 endif
-	@echo "Installing Python dependencies..."
-	@pip3 install -U uv
-	@echo "All dependencies installed"
 
 .PHONY: format
 format: ## Format all C source and header files
@@ -364,20 +355,25 @@ doc: ## Generate documentation for the library using Doxygen
 ####################################################################################################
 ## Example Target
 ####################################################################################################
-EXAMPLE_SRC := examples/c/hsdlib_example.c
+EXAMPLE_DIR := examples
+EXAMPLE_SRC := $(EXAMPLE_DIR)/hsdlib_example.c
 EXAMPLE_BIN := $(BIN_DIR)/hsdlib_example
 
 .PHONY: example
-example: ## Build and run example(s)
+example: ## Build and run the examples (for C and Python)
 	@echo "Building example in release mode..."
 	@$(MAKE) $(EXAMPLE_BIN) BUILD_TYPE=release
 	@echo "Running Hsdlib examples..."
 	@$(EXAMPLE_BIN)
+	@echo "Running HsdPy examples..."
+	@$(MAKE) python-build BUILD_TYPE=release
+	@$(MAKE) python-install > /dev/null
+	@uv run python3 $(EXAMPLE_DIR)/hsdpy_example.py
 	@echo "Example execution complete"
 
 $(EXAMPLE_BIN): $(EXAMPLE_SRC) $(STATIC_LIB) | $(BIN_DIR)
 	@echo "Building example: $@"
-	@$(CC) $(LIB_CFLAGS) -o $@ $< $(STATIC_LIB) $(LDFLAGS) $(LIBS) -std=gnu2x -fsanitize=undefined
+	@$(CC) $(LIB_CFLAGS) -o $@ $< $(STATIC_LIB) $(LDFLAGS) $(LIBS) -std=gnu2x
 
 ####################################################################################################
 ## Benchmarks: build into bin/ with a single binary per benchmark
@@ -391,14 +387,8 @@ BENCH_BINS   := $(foreach src,$(BENCH_SRCS),$(BIN_DIR)/$(basename $(notdir $(src
 # Benchmark-specific flags: optimize and disable debugging
 BENCH_CFLAGS := $(filter-out -g -O0 -DHSD_DEBUG,$(CFLAGS_COMMON)) -O3 -DNDEBUG
 
-# Static library for benchmarks (built in release mode for performance)
-.PHONY: bench-lib
-bench-lib: ## Build the library in release mode for benchmarks
-	@echo "Building library in release mode for benchmarks..."
-	@$(MAKE) rebuild BUILD_TYPE=release
-
 # Build a single binary for each benchmark
-$(BIN_DIR)/bench_%: $(BENCH_DIR)/bench_%.c bench-lib | $(BIN_DIR)
+$(BIN_DIR)/bench_%: $(BENCH_DIR)/bench_%.c build-release | $(BIN_DIR)
 	@echo "Building $@"
 	@$(CC) $(BENCH_CFLAGS) \
 		-D_POSIX_C_SOURCE=200809L \
@@ -474,13 +464,16 @@ bench-clean: ## Remove benchmark binaries
 ## Cleaning
 ####################################################################################################
 .PHONY: clean
-clean: python-clean zig-clean ## Remove all build artifacts and temporary files
+clean: python-clean ## Remove all build artifacts and temporary files
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(BIN_DIR) $(TARGET_DIR) $(LIB_DIR)
 	$(eval EXCLUDE_PRUNE := $(foreach d,$(CLEAN_EXCLUDE_DIRS),-path ./$(d) -prune -o ))
 	@find . $(EXCLUDE_PRUNE) \( -name '*.gcda' -o -name '*.gcno' -o -name '*.gcov' -o -name '*.d' -o -name '*.o' -o -name '*.a' -o -name '*.so' \) -exec rm -f {} + 2>/dev/null || true
 	@rm -rf Doxyfile.bak $(DOC_DIR)/html $(DOC_DIR)/latex
 	@echo "Clean complete"
+
+.PHONY: all
+all: rebuild test ## Build and run tests
 
 # Include dependency files
 -include $(DEP_FILES)

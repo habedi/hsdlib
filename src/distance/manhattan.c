@@ -153,7 +153,7 @@ __attribute__((target("avx512f"))) static hsd_status_t manhattan_avx512_internal
     *result = sum;
     return HSD_SUCCESS;
 }
-#endif
+#endif  // defined(__x86_64__) || defined(_M_X64)
 
 #if defined(__aarch64__) || defined(__arm__)
 static hsd_status_t manhattan_neon_internal(const float *a, const float *b, size_t n,
@@ -223,8 +223,8 @@ __attribute__((target("+sve"))) static hsd_status_t manhattan_sve_internal(const
     *result = sum;
     return HSD_SUCCESS;
 }
-#endif
-#endif
+#endif  // defined(__ARM_FEATURE_SVE)
+#endif  // defined(__aarch64__) || defined(__arm__)
 
 static hsd_manhattan_f32_func_t resolve_manhattan_f32_internal(void);
 static hsd_status_t manhattan_f32_resolver_trampoline(const float *a, const float *b, size_t n,
@@ -280,28 +280,32 @@ static hsd_manhattan_f32_func_t resolve_manhattan_f32_internal(void) {
             supported = true;
         }
 #elif defined(__aarch64__) || defined(__arm__)
+#if defined(__ARM_FEATURE_SVE)  // <<< Added check here
+        // Only consider SVE if compiled with SVE support
         if (forced == HSD_BACKEND_SVE && hsd_cpu_has_sve()) {
             chosen = manhattan_sve_internal;
             reason = "SVE (Forced)";
             supported = true;
-        } else if (forced == HSD_BACKEND_NEON && hsd_cpu_has_neon()) {
-            chosen = manhattan_neon_internal;
-            reason = "NEON (Forced)";
-            supported = true;
-        }
-#endif
+        } else  // <<< Fall through to NEON check if SVE not forced or not supported
+#endif                          // <<< End SVE check
+            if (forced == HSD_BACKEND_NEON && hsd_cpu_has_neon()) {
+                chosen = manhattan_neon_internal;
+                reason = "NEON (Forced)";
+                supported = true;
+            }
+#endif                          // End architecture check for forced backend
         else if (forced == HSD_BACKEND_SCALAR) {
             chosen = manhattan_scalar_internal;
             reason = "Scalar (Forced)";
             supported = true;
         }
 
-        if (!supported) {
+        if (!supported && forced != HSD_BACKEND_SCALAR) {
             hsd_log("Forced backend %d not supported; falling back", forced);
             chosen = manhattan_scalar_internal;
             reason = "Scalar (Fallback)";
         }
-    } else {
+    } else {  // Auto detection
         reason = "Scalar (Auto)";
 #if defined(__x86_64__) || defined(_M_X64)
         if (hsd_cpu_has_avx512f())
@@ -311,15 +315,14 @@ static hsd_manhattan_f32_func_t resolve_manhattan_f32_internal(void) {
         else if (hsd_cpu_has_avx())
             chosen = manhattan_avx_internal, reason = "AVX (Auto)";
 #elif defined(__aarch64__) || defined(__arm__)
-#if defined(__ARM_FEATURE_SVE)
+#if defined(__ARM_FEATURE_SVE)  // <<< Added check here
+        // Only consider SVE if compiled with SVE support
         if (hsd_cpu_has_sve())
             chosen = manhattan_sve_internal, reason = "SVE (Auto)";
-        else if (hsd_cpu_has_neon())
-            chosen = manhattan_neon_internal, reason = "NEON (Auto)";
-#else
-        if (hsd_cpu_has_neon()) chosen = manhattan_neon_internal, reason = "NEON (Auto)";
-#endif
-#endif
+        else  // <<< Fall through to NEON check if SVE not available/detected
+#endif                          // <<< End SVE check
+            if (hsd_cpu_has_neon()) chosen = manhattan_neon_internal, reason = "NEON (Auto)";
+#endif                          // End architecture check for auto detection
     }
 
     hsd_log("Dispatch: Resolved Manhattan F32 to: %s", reason);

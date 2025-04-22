@@ -1,27 +1,28 @@
-name: Run Test (HsdPy; AMD64)
+name: Run Tests (HsdPy; Linux; AMD64)
 
 on:
-  workflow_dispatch:  # Allow manual runs
+  workflow_dispatch:
   push:
     tags:
-      - 'v*'  # Trigger on version tags
+      - 'v*'
 
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        # Define the Python versions to test against
+        # The Python versions to test against
         python-version: [ "3.10", "3.11", "3.12", "3.13" ]
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Up Python ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
@@ -34,14 +35,12 @@ jobs:
 
       - name: Run Tests for HsdPy
         run: |
-          uv sync
-          uv pip install -e ".[dev]"
+          make python-setup
+          make python-build
           make python-install
           make python-tests
-        continue-on-error: false
 
-      - name: Upload coverage reports to Codecov
+      - name: Upload Coverage Reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-        continue-on-error: true
