@@ -21,8 +21,8 @@ Hardware-accelerated distance metrics and similarity measures for high-dimension
 
 Hsdlib is a C library that provides hardware-accelerated implementations of popular distance metrics and
 similarity measures for high-dimensional data.
-It automatically picks the optimal implementation (AVX/AVX2/AVX512 or NEON/SVE) at runtime based on the
-available CPU features.
+It automatically picks the optimal implementation based on available SIMD instruction sets (AVX/AVX2/AVX512 or NEON/SVE)
+at runtime.
 
 ### Features
 
@@ -31,8 +31,8 @@ available CPU features.
     - Squared Euclidean, Manhattan, Hamming distances
     - Dot-product, cosine, Jaccard similarities
 - Support for the AMD, Intel, and ARM CPUs
-- Support for runtime dispatch to the best SIMD backend with optional manual override
-- Bindings for Python (see [HsdPy](bindings/python))
+- Support for automatic (runtime dispatch) and manual SIMD backend selection
+- Bindings for Python (see [HsdPy](bindings/python)) 🐍
 - Compatible with C11 and later
 
 ---
@@ -120,13 +120,13 @@ Check out the **Types and Enums** section for more details.
 > before
 > calculating the cosine similarity.
 
-| Utility Function                   | Return Type       | Description                                                                                           |
-|:-----------------------------------|:------------------|:------------------------------------------------------------------------------------------------------|
-| `hsd_get_backend()`                | `const char *`    | Return textual name of current backend (auto or forced).                                              |
-| `hsd_has_avx512()`                 | `bool`            | Return true if AVX512F the CPU supports AVX512F (for AMD64).                                          |
-| `hsd_get_fp_mode_status()`         | `hsd_fp_status_t` | Get current floating-point FTZ and DAZ status. 1 for enabled, 0 for disabled.                         |
-| `hsd_set_manual_backend(backend)`  | `hsd_status_t`    | Override backend auto‑dispatch mechanism and force a specific backend to be used (e.g. AVX2 or NEON). |
-| `hsd_get_current_backend_choice()` | `HSD_Backend`     | Get the current backend that is being used.                                                           |
+| Utility Function                   | Return Type       | Description                                                                                                                               |
+|:-----------------------------------|:------------------|:------------------------------------------------------------------------------------------------------------------------------------------|
+| `hsd_get_backend()`                | `const char *`    | Return textual name of current backend (auto or forced).                                                                                  |
+| `hsd_has_avx512()`                 | `bool`            | Return true if AVX512F the CPU supports AVX512F (for AMD64).                                                                              |
+| `hsd_get_fp_mode_status()`         | `hsd_fp_status_t` | Get current floating-point FTZ and DAZ status. 1 for enabled, 0 for disabled.                                                             |
+| `hsd_set_manual_backend(backend)`  | `hsd_status_t`    | Override backend auto‑dispatch mechanism and force a specific backend to be used (e.g. AVX2 or NEON). `backend` is of type `HSD_Backend`. |
+| `hsd_get_current_backend_choice()` | `HSD_Backend`     | Get the current backend that is being used.                                                                                               |
 
 #### Types and Enums
 
@@ -137,7 +137,7 @@ typedef enum {
     HSD_SUCCESS               =  0,  // Operation was successful (e.g. result in *r is valid)
     HSD_ERR_NULL_PTR          = -1,  // NULL pointer encountered (e.g. a or b is NULL)
     HSD_ERR_INVALID_INPUT     = -3,  // NaN or Inf value encountered (e.g. a or b contains NaN or Inf)
-    HSD_ERR_CPU_NOT_SUPPORTED = -4,  // CPU does not support the required SIMD instruction set
+    HSD_ERR_CPU_NOT_SUPPORTED = -4,  // CPU does not support the required SIMD instruction set (backend)
     HSD_FAILURE               = -99  // A generic failure occurred (e.g. unknown error)
 } hsd_status_t;
 ```
@@ -175,7 +175,8 @@ typedef enum {
 #### Backend Selection
 
 Hsdlib automatically detects the best backend to use based on the CPU features available at runtime.
-Nevertheless, `hsd_set_manual_backend(HSD_BACKEND_NEON)` can be used to force a specific backend like AVX2 or NEON.
+Nevertheless, `hsd_set_manual_backend(backend)` can be used to force a specific `backend` like `HSD_BACKEND_AVX2` or
+`HSD_BACKEND_NEON`.
 In case the CPU does not support the required instruction set, the function will return `HSD_ERR_CPU_NOT_SUPPORTED`.
 
 ---
@@ -188,6 +189,12 @@ In case the CPU does not support the required instruction set, the function will
 | [`benches`](benches/) | Benchmarks for Hsdlib API |
 
 To run the tests and benchmarks, use the `make test` and `make bench` commands.
+
+### Compatibility
+
+Hsdlib is compatible with C11 standard and later.
+It was built and tested on Linux, macOS, and Windows for AMD64 and ARM64 CPUs.
+GCC (12.4 and 13.3) was used for building the library, but other compilers like Clang should work as well.
 
 ---
 

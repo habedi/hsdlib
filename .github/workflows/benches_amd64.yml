@@ -25,3 +25,12 @@ jobs:
 
       - name: Run Benchmarks for AMD64
         run: make bench-amd64
+
+      - name: Show CPU specs
+        run: |
+          echo "=== CPU Model ==="
+          grep -m1 'model name' /proc/cpuinfo | cut -d':' -f2 | xargs
+          echo "=== CPU Cores ==="
+          nproc
+          echo "=== Full lscpu Dump ==="
+          lscpu
