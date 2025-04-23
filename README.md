@@ -116,7 +116,7 @@ Check out the **Types and Enums** section for more details.
 >
 > **N3**: The implementation of the Hamming distance works on byte (`uint8_t`) vectors.
 > It calculates the total number of differing bits between the two sequences using the formula:
-> `hamming(a, b) = Σᵢ popcount(a_byte[i] ⊕ b_byte[i])`, where `popcount` counts the set bits and `⊕` is 
+> `hamming(a, b) = Σᵢ popcount(a_byte[i] ⊕ b_byte[i])`, where `popcount` counts the set bits and `⊕` is
 > the bitwise XOR operation. The function returns this total count.
 >
 > **N4**: Tanimoto coefficient formula is used to calculate the Jaccard similarity.
@@ -132,7 +132,7 @@ Check out the **Types and Enums** section for more details.
 |:-----------------------------------|:------------------|:------------------------------------------------------------------------------------------------------------------------------------------|
 | `hsd_get_backend()`                | `const char *`    | Return textual name of current backend (auto or forced).                                                                                  |
 | `hsd_has_avx512()`                 | `bool`            | Return true if AVX512F the CPU supports AVX512F (for AMD64).                                                                              |
-| `hsd_get_fp_mode_status()`         | `hsd_fp_status_t` | Get current floating-point flush-to-zero mode (FTZ) and denormals-are-zero mode (DAZ) status. 1 for enabled, 0 for disabled.              |
+| `hsd_get_fp_mode_status()`         | `hsd_fp_status_t` | Get current floating-point flush-to-zero mode (FTZ) and denormals-are-zero mode (DAZ) status.                                             |
 | `hsd_set_manual_backend(backend)`  | `hsd_status_t`    | Override backend auto‑dispatch mechanism and force a specific backend to be used (e.g. AVX2 or NEON). `backend` is of type `HSD_Backend`. |
 | `hsd_get_current_backend_choice()` | `HSD_Backend`     | Get the current backend that is being used.                                                                                               |
 
