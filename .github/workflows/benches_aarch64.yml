@@ -11,11 +11,20 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm # Or `ubuntu-22.04-arm`
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Show CPU specs
+        run: |
+          echo "=== CPU Model ==="
+          grep -m1 'model name' /proc/cpuinfo | cut -d':' -f2 | xargs
+          echo "=== CPU Cores ==="
+          nproc
+          echo "=== Full lscpu Dump ==="
+          lscpu
 
       - name: Install Dependencies
         run: |
@@ -25,4 +34,3 @@ jobs:
 
       - name: Run Benchmarks for AArch64
         run: make bench-aarch64
-

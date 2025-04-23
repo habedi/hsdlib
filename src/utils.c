@@ -211,8 +211,8 @@ hsd_fp_status_t hsd_get_fp_mode_status(void) {
 #define HSD_MXCSR_FTZ_BIT (1 << 15)
 #define HSD_MXCSR_DAZ_BIT (1 << 6)
     unsigned int mxcsr = _mm_getcsr();
-    status.ftz_enabled = (mxcsr & HSD_MXCSR_FTZ_BIT) ? 1 : 0;
-    status.daz_enabled = (mxcsr & HSD_MXCSR_DAZ_BIT) ? 1 : 0;
+    status.ftz_enabled = (mxcsr & HSD_MXCSR_FTZ_BIT) != 0;
+    status.daz_enabled = (mxcsr & HSD_MXCSR_DAZ_BIT) != 0;
 #undef HSD_MXCSR_FTZ_BIT
 #undef HSD_MXCSR_DAZ_BIT
 #endif

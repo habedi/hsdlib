@@ -21,8 +21,8 @@ Hardware-accelerated distance metrics and similarity measures for high-dimension
 
 Hsdlib is a C library that provides hardware-accelerated implementations of popular distance metrics and
 similarity measures for high-dimensional data.
-It automatically picks the optimal implementation (AVX/AVX2/AVX512 or NEON/SVE) at runtime based on the
-available CPU features.
+It automatically picks the optimal implementation based on available SIMD instruction sets (backend) like
+AVX/AVX2/AVX512 for AMD64 or NEON/SVE for AArch64 CPUs at runtime.
 
 ### Features
 
@@ -31,8 +31,8 @@ available CPU features.
     - Squared Euclidean, Manhattan, Hamming distances
     - Dot-product, cosine, Jaccard similarities
 - Support for the AMD, Intel, and ARM CPUs
-- Support for runtime dispatch to the best SIMD backend with optional manual override
-- Bindings for Python (see [HsdPy](bindings/python))
+- Support for runtime dispatch with optional manual override
+- Bindings for Python (see [HsdPy](bindings/python)) 🐍
 - Compatible with C11 and later
 
 ---
@@ -50,39 +50,47 @@ make install-deps
 
 # Build the library (shared and static)
 make build BUILD_TYPE=release # Default is `debug`
-ls lib # Check the built libraries (libhsd.so, libhsd.a, etc.)
+ls lib # Check the built library files (libhsd.so, libhsd.a, etc.)
 ```
 
 After the build is complete, you can include the [hsdlib.h](include/hsdlib.h) header file in your C (or C++) code and
-link against the libraries in the `lib` directory.
+link against the library files in the `lib` directory.
 
-### Examples
+#### Python Bindings
+
+To use Hsdlib in Python, you can install the [HsdPy](bindings/python) package using pip:
+
+```bash
+pip install hsdpy
+```
+
+#### Examples
 
 | File                                          | Description                          |
 |:----------------------------------------------|:-------------------------------------|
 | [hsdlib_example.c](examples/hsdlib_example.c) | Example usages of Hsdlib API (C)     |
 | [hsdpy_example.py](examples/hsdpy_example.py) | Example usages of HsdPy API (Python) |
 
-To compile and run the example(s), use the `make example` command.
+To compile and run the examples, use the `make example` command.
 
 ---
 
 ### Documentation
 
 API documentation can be generated using [Doxygen](https://www.doxygen.nl).
-To generate the documentation, use the `make doc` command and then open the `doc/html/index.html` file in a web browser
+To generate the documentation, use the `make doc` command and then open the `docs/html/index.html` file in a web browser
 to see it.
 
 #### API Summary
 
-| Distance or Similarity Function | Description                                                                                                                               |
-|:--------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------|
-| `hsd_dist_sqeuclidean_f32(...)` | Compute squared Euclidean ($L_2^2$) distance between two float vectors.                                                                   |
-| `hsd_dist_manhattan_f32(...)`   | Compute Manhattan ($L_1$) distance between two float vectors.                                                                             |
-| `hsd_dist_hamming_u8(...)`      | Compute Hamming distance between two binary or non-binary byte vectors.                                                                   |
-| `hsd_sim_dot_f32(...)`          | Compute dot product similarity between two float vectors.                                                                                 |
-| `hsd_sim_cosine_f32(...)`       | Compute cosine similarity between two float vectors.                                                                                      |
-| `hsd_sim_jaccard_u16(...)`      | Compute Jaccard similarity between two binary vectors. If vectors are not binary (positive integers), Tanimoto coefficient is calculated. |
+| Distance or Similarity Function | Description                                                                                                                                |
+|:--------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------|
+| `hsd_dist_sqeuclidean_f32(...)` | Compute squared Euclidean ($L_2^2$) distance between two float vectors.                                                                    |
+| `hsd_dist_manhattan_f32(...)`   | Compute Manhattan ($L_1$) distance between two float vectors.                                                                              |
+| `hsd_dist_hamming_u8(...)`      | Compute Hamming distance between two binary or non-binary byte (`uint8_t`) vectors.                                                        |
+| `hsd_sim_dot_f32(...)`          | Compute dot product similarity between two float vectors.                                                                                  |
+| `hsd_sim_cosine_f32(...)`       | Compute cosine similarity between two float vectors.                                                                                       |
+| `hsd_sim_jaccard_u16(...)`      | Compute Jaccard similarity between two binary vectors. If vectors are not binary (integer `uint16_t`), Tanimoto coefficient is calculated. |
 
 The distance and similarity functions (functions that their names start with `hsd_dist_` or `hsd_sim_`) accept the
 following parameters in order:
@@ -101,15 +109,15 @@ Check out the **Types and Enums** section for more details.
 > **N1**: Euclidean distance can easily be calculated from the squared Euclidean
 > distance: $\text{euclidean}(a, b) = \sqrt{\text{squared euclidean}(a, b)}$
 >
-> **N2**: The implementation of the Hamming distance works both on binary and non-binary vectors.
-> If the vectors are not binary, the Hamming distance is calculated using the following formula:
-> `hamming(a, b) = Σᵢ popcount(a_byte[i] ⊕ b_byte[i]) / total_bits`
-> where `total_bits` is `n` times 8 (the number of bits in uint8_t).
->
-> **N3**: The similarity measures can be used to calculate distances (or dissimilarities) as follows:
+> **N2**: The similarity measures can be used to calculate distances (or dissimilarities) as follows:
 > - Cosine distance = $1 - \text{cosine}(a, b)$
 > - Jaccard distance = $1 - \text{jaccard}(a, b)$
 > - Negative dot product = $-\text{dot}(a, b)$
+>
+> **N3**: The implementation of the Hamming distance works on byte (`uint8_t`) vectors.
+> It calculates the total number of differing bits between the two sequences using the formula:
+> `hamming(a, b) = Σᵢ popcount(a_byte[i] ⊕ b_byte[i])`, where `popcount` counts the set bits and `⊕` is 
+> the bitwise XOR operation. The function returns this total count.
 >
 > **N4**: Tanimoto coefficient formula is used to calculate the Jaccard similarity.
 > Note that the formula gives the Jaccard similarity for binary vectors.
@@ -120,13 +128,13 @@ Check out the **Types and Enums** section for more details.
 > before
 > calculating the cosine similarity.
 
-| Utility Function                   | Return Type       | Description                                                                                           |
-|:-----------------------------------|:------------------|:------------------------------------------------------------------------------------------------------|
-| `hsd_get_backend()`                | `const char *`    | Return textual name of current backend (auto or forced).                                              |
-| `hsd_has_avx512()`                 | `bool`            | Return true if AVX512F the CPU supports AVX512F (for AMD64).                                          |
-| `hsd_get_fp_mode_status()`         | `hsd_fp_status_t` | Get current floating-point FTZ and DAZ status. 1 for enabled, 0 for disabled.                         |
-| `hsd_set_manual_backend(backend)`  | `hsd_status_t`    | Override backend auto‑dispatch mechanism and force a specific backend to be used (e.g. AVX2 or NEON). |
-| `hsd_get_current_backend_choice()` | `HSD_Backend`     | Get the current backend that is being used.                                                           |
+| Utility Function                   | Return Type       | Description                                                                                                                               |
+|:-----------------------------------|:------------------|:------------------------------------------------------------------------------------------------------------------------------------------|
+| `hsd_get_backend()`                | `const char *`    | Return textual name of current backend (auto or forced).                                                                                  |
+| `hsd_has_avx512()`                 | `bool`            | Return true if AVX512F the CPU supports AVX512F (for AMD64).                                                                              |
+| `hsd_get_fp_mode_status()`         | `hsd_fp_status_t` | Get current floating-point flush-to-zero mode (FTZ) and denormals-are-zero mode (DAZ) status. 1 for enabled, 0 for disabled.              |
+| `hsd_set_manual_backend(backend)`  | `hsd_status_t`    | Override backend auto‑dispatch mechanism and force a specific backend to be used (e.g. AVX2 or NEON). `backend` is of type `HSD_Backend`. |
+| `hsd_get_current_backend_choice()` | `HSD_Backend`     | Get the current backend that is being used.                                                                                               |
 
 #### Types and Enums
 
@@ -137,7 +145,7 @@ typedef enum {
     HSD_SUCCESS               =  0,  // Operation was successful (e.g. result in *r is valid)
     HSD_ERR_NULL_PTR          = -1,  // NULL pointer encountered (e.g. a or b is NULL)
     HSD_ERR_INVALID_INPUT     = -3,  // NaN or Inf value encountered (e.g. a or b contains NaN or Inf)
-    HSD_ERR_CPU_NOT_SUPPORTED = -4,  // CPU does not support the required SIMD instruction set
+    HSD_ERR_CPU_NOT_SUPPORTED = -4,  // CPU does not support the required SIMD instruction set (backend)
     HSD_FAILURE               = -99  // A generic failure occurred (e.g. unknown error)
 } hsd_status_t;
 ```
@@ -146,10 +154,15 @@ The `hsd_fp_status_t` struct is defined as follows:
 
 ```c
 typedef struct {
-    int ftz_enabled; // (1) If flush-to-zero mode is enabled, (0) otherwise
-    int daz_enabled; // (1) If denormals-are-zero mode is enabled, (0) otherwise
+    bool ftz_enabled; // True if FTZ mode is enabled, false otherwise
+    bool daz_enabled; // True if DAZ mode is enabled, false otherwise
 } hsd_fp_status_t;
 ```
+
+> [!NOTE]
+> FTZ and DAZ modes are used to flush denormal numbers to zero in floating-point calculations.
+> If enabled, they can improve performance on some CPUs, especially when dealing with small floating-point numbers.
+> However, they can also lead to less accurate results.
 
 The `HSD_Backend` enum is defined as follows:
 
@@ -175,8 +188,14 @@ typedef enum {
 #### Backend Selection
 
 Hsdlib automatically detects the best backend to use based on the CPU features available at runtime.
-Nevertheless, `hsd_set_manual_backend(HSD_BACKEND_NEON)` can be used to force a specific backend like AVX2 or NEON.
-In case the CPU does not support the required instruction set, the function will return `HSD_ERR_CPU_NOT_SUPPORTED`.
+Nevertheless, `hsd_set_manual_backend(backend)` can be used to force a specific `backend` like `HSD_BACKEND_AVX2` or
+`HSD_BACKEND_NEON`.
+In case the CPU does not support the required instruction set, the function will return `HSD_ERR_CPU_NOT_SUPPORTED` and
+`BACKEND_SCALAR` will be used as the fallback backend.
+
+> [!NOTE]
+> Normally, using `HSD_BACKEND_AUTO` is recommended because it allows the library to select the best backend for
+> the CPU in most cases automatically at runtime.
 
 ---
 
@@ -188,6 +207,12 @@ In case the CPU does not support the required instruction set, the function will
 | [`benches`](benches/) | Benchmarks for Hsdlib API |
 
 To run the tests and benchmarks, use the `make test` and `make bench` commands.
+
+### Compatibility
+
+Hsdlib is compatible with C11 standard and later.
+It was built and tested on Linux, macOS, and Windows for CPUs with AMD64 and AArch64 architectures.
+GCC (12.4 and newer) was used for building the library, but other compilers like Clang should work as well.
 
 ---
 

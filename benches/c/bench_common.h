@@ -71,56 +71,57 @@ static inline void generate_random_u16(uint16_t *v, size_t n) {
     for (size_t i = 0; i < n; ++i) v[i] = (uint16_t)(rand() % 2);
 }
 
-#define RUN_BENCHMARK(fn, suf, dt, rt, fmt, gen, hsd_fn)                        \
-    int main(void) {                                                            \
-        /* pick backend: env overrides compile-time default */                  \
-        const char *fb = getenv("HSD_BENCH_FORCE_BACKEND");                     \
-        hsd_set_manual_backend(parse_backend(fb));                              \
-                                                                                \
-        initialize_random_seed();                                               \
-        printf("Benchmarking %s_%s\n", #fn, #suf);                              \
-        printf("Backend in use: %s\n", hsd_get_backend());                      \
-        printf("Vector dim: %d, iterations: %d\n", VECTOR_DIM, NUM_ITERATIONS); \
-                                                                                \
-        size_t sz = VECTOR_DIM * sizeof(dt);                                    \
-        dt *a = malloc(sz), *b = malloc(sz);                                    \
-        if (!a || !b) {                                                         \
-            fprintf(stderr, "alloc failed\n");                                  \
-            return 1;                                                           \
-        }                                                                       \
-        gen(a, VECTOR_DIM);                                                     \
-        gen(b, VECTOR_DIM);                                                     \
-                                                                                \
-        volatile rt result;                                                     \
-        hsd_status_t st;                                                        \
-        double t0, t1;                                                          \
-                                                                                \
-        /* warm-up */                                                           \
-        st = hsd_fn(a, b, VECTOR_DIM, (rt *)&result);                           \
-        if (st != HSD_SUCCESS) fprintf(stderr, "warm-up failed: %d\n", st);     \
-                                                                                \
-        t0 = get_time_sec();                                                    \
-        for (int i = 0; i < NUM_ITERATIONS; ++i) {                              \
-            st = hsd_fn(a, b, VECTOR_DIM, (rt *)&result);                       \
-            if (st != HSD_SUCCESS) {                                            \
-                fprintf(stderr, "iter %d failed: %d\n", i, st);                 \
-                break;                                                          \
-            }                                                                   \
-        }                                                                       \
-        t1 = get_time_sec();                                                    \
-                                                                                \
-        double total = t1 - t0;                                                 \
-        double per_iter = total / NUM_ITERATIONS;                               \
-        double ops_sec = NUM_ITERATIONS / total;                                \
-                                                                                \
-        printf("Last result: " fmt "\n", result);                               \
-        printf("Total time: %.6f s\n", total);                                  \
-        printf("Time per iter: %.9f s\n", per_iter);                            \
-        printf("Ops/sec: %.2f\n", ops_sec);                                     \
-                                                                                \
-        free(a);                                                                \
-        free(b);                                                                \
-        return 0;                                                               \
+#define RUN_BENCHMARK(fn, suf, dt, rt, fmt, gen, hsd_fn)                                           \
+    int main(void) {                                                                               \
+        /* pick backend: env overrides compile-time default */                                     \
+        const char *fb = getenv("HSD_BENCH_FORCE_BACKEND");                                        \
+        hsd_set_manual_backend(parse_backend(fb));                                                 \
+                                                                                                   \
+        initialize_random_seed();                                                                  \
+        printf("Benchmarking %s_%s\n", #fn, #suf);                                                 \
+        printf("Backend in use: %s\n", hsd_get_backend());                                         \
+        printf("Vector dim: %d, num iterations: %d, rand seed: %d\n", VECTOR_DIM, NUM_ITERATIONS, \
+               RANDOM_SEED);                                                                       \
+                                                                                                   \
+        size_t sz = VECTOR_DIM * sizeof(dt);                                                       \
+        dt *a = malloc(sz), *b = malloc(sz);                                                       \
+        if (!a || !b) {                                                                            \
+            fprintf(stderr, "alloc failed\n");                                                     \
+            return 1;                                                                              \
+        }                                                                                          \
+        gen(a, VECTOR_DIM);                                                                        \
+        gen(b, VECTOR_DIM);                                                                        \
+                                                                                                   \
+        volatile rt result;                                                                        \
+        hsd_status_t st;                                                                           \
+        double t0, t1;                                                                             \
+                                                                                                   \
+        /* warm-up */                                                                              \
+        st = hsd_fn(a, b, VECTOR_DIM, (rt *)&result);                                              \
+        if (st != HSD_SUCCESS) fprintf(stderr, "warm-up failed: %d\n", st);                        \
+                                                                                                   \
+        t0 = get_time_sec();                                                                       \
+        for (int i = 0; i < NUM_ITERATIONS; ++i) {                                                 \
+            st = hsd_fn(a, b, VECTOR_DIM, (rt *)&result);                                          \
+            if (st != HSD_SUCCESS) {                                                               \
+                fprintf(stderr, "iter %d failed: %d\n", i, st);                                    \
+                break;                                                                             \
+            }                                                                                      \
+        }                                                                                          \
+        t1 = get_time_sec();                                                                       \
+                                                                                                   \
+        double total = t1 - t0;                                                                    \
+        double per_iter = total / NUM_ITERATIONS;                                                  \
+        double ops_sec = NUM_ITERATIONS / total;                                                   \
+                                                                                                   \
+        printf("Last result: " fmt "\n", result);                                                  \
+        printf("Total time: %.5f s\n", total);                                                     \
+        printf("Time per iter: %.9f s\n", per_iter);                                               \
+        printf("Ops/sec: %.2f\n", ops_sec);                                                        \
+                                                                                                   \
+        free(a);                                                                                   \
+        free(b);                                                                                   \
+        return 0;                                                                                  \
     }
 
 #endif  // BENCH_COMMON_H

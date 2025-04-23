@@ -38,7 +38,7 @@ jobs:
           make python-setup
           make python-build
           make python-install
-          make python-tests
+          make python-test
 
       - name: Upload Coverage Reports to Codecov
         uses: codecov/codecov-action@v5

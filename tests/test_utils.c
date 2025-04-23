@@ -86,7 +86,7 @@ void run_utils_tests(void) {
     else
         printf("(Unknown/Unsupported)\n");
 
-    if (fp_status.ftz_enabled == -1 && fp_status.daz_enabled == -1) {
+    if (fp_status.ftz_enabled == false && fp_status.daz_enabled == false) {
         printf("INFO: FTZ/DAZ status check not supported or failed on this platform.\n");
     } else {
         printf(

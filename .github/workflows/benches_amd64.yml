@@ -17,6 +17,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Show CPU specs
+        run: |
+          echo "=== CPU Model ==="
+          grep -m1 'model name' /proc/cpuinfo | cut -d':' -f2 | xargs
+          echo "=== CPU Cores ==="
+          nproc
+          echo "=== Full lscpu Dump ==="
+          lscpu
+
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -25,3 +34,4 @@ jobs:
 
       - name: Run Benchmarks for AMD64
         run: make bench-amd64
+
