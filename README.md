@@ -29,7 +29,7 @@ AVX/AVX2/AVX512 for AMD64 or NEON/SVE for AArch64 CPUs at runtime.
 - Simple unified API (see [hsdlib.h](include/hsdlib.h))
 - Support for popular distances and similarity measures
     - Squared Euclidean, Manhattan, Hamming distances
-    - Dot-product, cosine, Jaccard similarities
+    - Dot product, cosine, Jaccard similarities
 - Support for the AMD, Intel, and ARM CPUs
 - Support for runtime dispatch with optional manual override
 - Bindings for Python (see [HsdPy](bindings/python)) 🐍
