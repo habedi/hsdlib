@@ -16,7 +16,7 @@ Benchmarks have the following parameters:
 Vectors were randomly generated using the `rand()` function from the C standard library.
 Distances and similarities were calculated sequentially, and benchmark harness is calculated as the average time taken
 to compute the distance (or similarity) for all vector pairs.
-Check out `c/bench_common.h` for the full details how the benchmarks are implemented.
+Check out [`c/bench_common.h`](c/bench_common.h) for the full details how the benchmarks are implemented.
 
 All benchmarks are built using GCC (13.3) with `-O3` optimization level and run on Ubuntu 22.04 LTS or later.
 Values are runtime in seconds and lower is better.
