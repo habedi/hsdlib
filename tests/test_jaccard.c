@@ -102,5 +102,52 @@ void run_jaccard_sim_tests(void) {
     }
     printf("\n");
 
+    // --- Large Vector Tests ---
+    printf("-- Running Large Vector Tests [%s] --\n", func_name);
+    const size_t LARGE_N1 = 4096;
+    const size_t LARGE_N2 = 4096 + 7;  // Test remainder handling
+
+    // Allocate memory
+    uint16_t *large_a1 = (uint16_t *)malloc(LARGE_N1 * sizeof(uint16_t));
+    uint16_t *large_b1 = (uint16_t *)malloc(LARGE_N1 * sizeof(uint16_t));
+    uint16_t *large_a2 = (uint16_t *)malloc(LARGE_N2 * sizeof(uint16_t));
+    uint16_t *large_b2 = (uint16_t *)malloc(LARGE_N2 * sizeof(uint16_t));
+
+    if (!large_a1 || !large_b1 || !large_a2 || !large_b2) {
+        fprintf(stderr, "FAIL: Failed to allocate memory for large vector tests [%s]\n", func_name);
+        g_test_failed++;
+        free(large_a1);
+        free(large_b1);
+        free(large_a2);
+        free(large_b2);
+    } else {
+        // Initialize vectors (example patterns)
+        for (size_t i = 0; i < LARGE_N1; ++i) {
+            large_a1[i] = (uint16_t)(i * 13);
+            large_b1[i] = (uint16_t)((i + 5) * 17);
+        }
+        for (size_t i = 0; i < LARGE_N2; ++i) {
+            large_a2[i] = (uint16_t)(i * 11);
+            large_b2[i] = (uint16_t)((i + 3) * 19);
+        }
+
+        // Run tests
+        run_test_f32_u16_input(func_ptr, func_name, "Large Dimension (N=4096)", large_a1, large_b1,
+                               LARGE_N1, simple_jaccard_sim_u16(large_a1, large_b1, LARGE_N1),
+                               1e-3f);
+
+        run_test_f32_u16_input(func_ptr, func_name, "Large Dimension (N=4096+7)", large_a2,
+                               large_b2, LARGE_N2,
+                               simple_jaccard_sim_u16(large_a2, large_b2, LARGE_N2), 1e-3f);
+
+        // Free memory
+        free(large_a1);
+        free(large_b1);
+        free(large_a2);
+        free(large_b2);
+    }
+    printf("-- Finished Large Vector Tests [%s] --\n", func_name);
+    // --- End Large Vector Tests ---
+
     printf("======= Finished Jaccard Similarity Tests (uint16_t) =======\n");
 }

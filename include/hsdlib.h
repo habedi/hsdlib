@@ -33,8 +33,8 @@ typedef enum {
 typedef HSD_Status hsd_status_t;
 
 typedef struct {
-    int ftz_enabled;
-    int daz_enabled;
+    bool ftz_enabled;
+    bool daz_enabled;
 } hsd_fp_status_t;
 
 typedef enum {

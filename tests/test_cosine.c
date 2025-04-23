@@ -171,5 +171,52 @@ void run_cosine_sim_tests(void) {
     run_test_expect_failure_status_f32(func_ptr, func_name, "Infinity Input Vec B", v_ok, v_inf2,
                                        3);
 
+    // --- Large Vector Tests ---
+    printf("-- Running Large Vector Tests [%s] --\n", func_name);
+    const size_t LARGE_N1 = 4096;
+    const size_t LARGE_N2 = 4096 + 7;  // Test remainder handling
+
+    // Allocate memory
+    float *large_a1 = (float *)malloc(LARGE_N1 * sizeof(float));
+    float *large_b1 = (float *)malloc(LARGE_N1 * sizeof(float));
+    float *large_a2 = (float *)malloc(LARGE_N2 * sizeof(float));
+    float *large_b2 = (float *)malloc(LARGE_N2 * sizeof(float));
+
+    if (!large_a1 || !large_b1 || !large_a2 || !large_b2) {
+        fprintf(stderr, "FAIL: Failed to allocate memory for large vector tests [%s]\n", func_name);
+        g_test_failed++;
+        free(large_a1);
+        free(large_b1);
+        free(large_a2);
+        free(large_b2);
+    } else {
+        // Initialize vectors
+        for (size_t i = 0; i < LARGE_N1; ++i) {
+            large_a1[i] = (float)(i % 13) * 0.5f - 3.0f;
+            large_b1[i] = (float)((i + 5) % 17) * 0.3f + 1.0f;
+        }
+        // Initialize orthogonal large vectors
+        for (size_t i = 0; i < LARGE_N2; ++i) {
+            large_a2[i] = (i % 2 == 0) ? (float)(i % 11) * 0.4f - 2.0f : 0.0f;
+            large_b2[i] = (i % 2 != 0) ? (float)((i + 3) % 19) * 0.6f - 0.5f : 0.0f;
+        }
+
+        // Run tests
+        run_test_f32(func_ptr, func_name, "Large Dimension (N=4096)", large_a1, large_b1, LARGE_N1,
+                     simple_cosine_sim_f32(large_a1, large_b1, LARGE_N1),
+                     1e-3f);  // Cosine result is [-1, 1]
+
+        run_test_f32(func_ptr, func_name, "Large Dimension Orthogonal (N=4096+7)", large_a2,
+                     large_b2, LARGE_N2, 0.0f, 1e-4f);  // Expect 0 for orthogonal
+
+        // Free memory
+        free(large_a1);
+        free(large_b1);
+        free(large_a2);
+        free(large_b2);
+    }
+    printf("-- Finished Large Vector Tests [%s] --\n", func_name);
+    // --- End Large Vector Tests ---
+
     printf("======= Finished Cosine Similarity Tests =======\n");
 }

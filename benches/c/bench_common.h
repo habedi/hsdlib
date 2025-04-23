@@ -80,7 +80,7 @@ static inline void generate_random_u16(uint16_t *v, size_t n) {
         initialize_random_seed();                                                                  \
         printf("Benchmarking %s_%s\n", #fn, #suf);                                                 \
         printf("Backend in use: %s\n", hsd_get_backend());                                         \
-        printf("Vector dim: %d, num iterations: %d, rand seed: %ld\n", VECTOR_DIM, NUM_ITERATIONS, \
+        printf("Vector dim: %d, num iterations: %d, rand seed: %d\n", VECTOR_DIM, NUM_ITERATIONS, \
                RANDOM_SEED);                                                                       \
                                                                                                    \
         size_t sz = VECTOR_DIM * sizeof(dt);                                                       \
