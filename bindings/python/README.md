@@ -58,7 +58,8 @@ Check out [hsdpy_example.py](../../examples/hsdpy_example.py) for more detailed 
 
 #### Notes
 
-- `HsdError`: Custom exception raised for internal Hsdlib errors with status code and message.
+- HsdPy provides the `HsdError` exception class for error handling. It is a custom exception class wraps the Hsdlib
+  error codes to make them more Pythonic.
 - All distance and similarity functions expect one-dimensional NumPy arrays as input.
 - Functions will raise `NotImplementedError` if the corresponding Hsdlib function is not implemented for the given data
   type.
