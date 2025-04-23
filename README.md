@@ -212,7 +212,7 @@ To run the tests and benchmarks, use the `make test` and `make bench` commands.
 
 Hsdlib is compatible with C11 standard and later.
 It was built and tested on Linux, macOS, and Windows for CPUs with AMD64 and AArch64 architectures.
-GCC (12.4 and newer) was used for building the library, but other compilers like Clang should work as well.
+GCC (12.2 and newer) was used for building the library, but other compilers like Clang should work as well.
 
 ---
 
