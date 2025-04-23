@@ -144,29 +144,30 @@ __attribute__((target("+sve"))) static hsd_status_t hamming_sve_internal(const u
     hsd_log("Enter hamming_sve_internal (n=%zu)", n);
     int64_t i = 0;
     int64_t n_sve = (int64_t)n;
-    svbool_t pg;
-    svuint64_t acc = svdup_n_u64(0);
+    uint64_t total_sum = 0;
 
     while (i < n_sve) {
-        pg = svwhilelt_b8((uint64_t)i, (uint64_t)n);
+        svbool_t pg_b8 = svwhilelt_b8((uint64_t)i, (uint64_t)n);
 
-        svuint8_t va = svld1_u8(pg, a + i);
-        svuint8_t vb = svld1_u8(pg, b + i);
-        svuint8_t x = sveor_z(pg, va, vb);
-        svuint8_t pc8 = svcnt_u8_z(pg, x);
+        svuint8_t va = svld1_u8(pg_b8, a + i);
+        svuint8_t vb = svld1_u8(pg_b8, b + i);
+        svuint8_t x = sveor_z(pg_b8, va, vb);
+        svuint8_t pc8 = svcnt_u8_z(pg_b8, x);
 
         svuint16_t pc16_lo = svunpklo_u16(pc8);
         svuint16_t pc16_hi = svunpkhi_u16(pc8);
-        svuint32_t pc32_lo = svunpklo_u32(pc16_lo);
-        svuint32_t pc32_hi = svunpkhi_u32(pc16_hi);
 
-        acc = svaddwb_u64(acc, pc32_lo);
-        acc = svaddwt_u64(acc, pc32_hi);
+        svbool_t pg_b16 = svwhilelt_b16((uint64_t)i, (uint64_t)n);
+
+        uint64_t sum16_lo = svaddv_u16(pg_b16, pc16_lo);
+        uint64_t sum16_hi = svaddv_u16(pg_b16, pc16_hi);
+
+        total_sum += sum16_lo + sum16_hi;
 
         i += svcntb();
     }
 
-    *result = svaddv_u64(svptrue_b64(), acc);
+    *result = total_sum;
     return HSD_SUCCESS;
 }
 #endif

@@ -285,13 +285,13 @@ __attribute__((target("+sve"))) static hsd_status_t jaccard_get_sums_sve_interna
     hsd_log("Enter jaccard_sve_internal<u16> (n=%zu)", n);
     int64_t i = 0;
     int64_t n_sve = (int64_t)n;
-    svbool_t pg;
-    svuint64_t dot_acc = svdup_n_u64(0);
-    svuint64_t a_acc = svdup_n_u64(0);
-    svuint64_t b_acc = svdup_n_u64(0);
+    uint64_t dot_p = 0;
+    uint64_t n_a_sq = 0;
+    uint64_t n_b_sq = 0;
 
     while (i < n_sve) {
-        pg = svwhilelt_b16((uint64_t)i, (uint64_t)n_sve);
+        svbool_t pg = svwhilelt_b16((uint64_t)i, (uint64_t)n);
+
         svuint16_t va16 = svld1_u16(pg, a + i);
         svuint16_t vb16 = svld1_u16(pg, b + i);
 
@@ -300,27 +300,30 @@ __attribute__((target("+sve"))) static hsd_status_t jaccard_get_sums_sve_interna
         svuint32_t vb_lo = svunpklo_u32(vb16);
         svuint32_t vb_hi = svunpkhi_u32(vb16);
 
-        svuint32_t dot_lo = svmul_u32_z(svptrue_b32(), va_lo, vb_lo);
+        svbool_t pg_u32_lo = svunpklo_b(pg);
+        svbool_t pg_u32_hi = svunpkhi_b(pg);
 
-        svuint32_t dot_hi = svmul_u32_z(svptrue_b32(), va_hi, vb_hi);
-        svuint32_t a_lo2 = svmul_u32_z(svptrue_b32(), va_lo, va_lo);
-        svuint32_t a_hi2 = svmul_u32_z(svptrue_b32(), va_hi, va_hi);
-        svuint32_t b_lo2 = svmul_u32_z(svptrue_b32(), vb_lo, vb_lo);
-        svuint32_t b_hi2 = svmul_u32_z(svptrue_b32(), vb_hi, vb_hi);
+        svuint32_t dot_lo = svmul_u32_z(pg_u32_lo, va_lo, vb_lo);
+        svuint32_t dot_hi = svmul_u32_z(pg_u32_hi, va_hi, vb_hi);
+        svuint32_t a_lo2 = svmul_u32_z(pg_u32_lo, va_lo, va_lo);
+        svuint32_t a_hi2 = svmul_u32_z(pg_u32_hi, va_hi, va_hi);
+        svuint32_t b_lo2 = svmul_u32_z(pg_u32_lo, vb_lo, vb_lo);
+        svuint32_t b_hi2 = svmul_u32_z(pg_u32_hi, vb_hi, vb_hi);
 
-        dot_acc = svaddwb_u64(dot_acc, dot_lo);
-        dot_acc = svaddwt_u64(dot_acc, dot_hi);
-        a_acc = svaddwb_u64(a_acc, a_lo2);
-        a_acc = svaddwt_u64(a_acc, a_hi2);
-        b_acc = svaddwb_u64(b_acc, b_lo2);
-        b_acc = svaddwt_u64(b_acc, b_hi2);
+        uint64_t dot_sum_loop = svaddv_u32(pg_u32_lo, dot_lo) + svaddv_u32(pg_u32_hi, dot_hi);
+        uint64_t a_sum_loop = svaddv_u32(pg_u32_lo, a_lo2) + svaddv_u32(pg_u32_hi, a_hi2);
+        uint64_t b_sum_loop = svaddv_u32(pg_u32_lo, b_lo2) + svaddv_u32(pg_u32_hi, b_hi2);
+
+        dot_p += dot_sum_loop;
+        n_a_sq += a_sum_loop;
+        n_b_sq += b_sum_loop;
 
         i += svcnth();
     }
 
-    sums->dot_product = svaddv_u64(svptrue_b64(), dot_acc);
-    sums->norm_a_sq = svaddv_u64(svptrue_b64(), a_acc);
-    sums->norm_b_sq = svaddv_u64(svptrue_b64(), b_acc);
+    sums->dot_product = dot_p;
+    sums->norm_a_sq = n_a_sq;
+    sums->norm_b_sq = n_b_sq;
     return HSD_SUCCESS;
 }
 #endif
