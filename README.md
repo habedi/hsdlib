@@ -201,10 +201,10 @@ In case the CPU does not support the required instruction set, the function will
 
 ### Tests and Benchmarks
 
-| File                  | Description               |
-|:----------------------|:--------------------------|
-| [`tests`](tests/)     | Unit tests for Hsdlib API |
-| [`benches`](benches/) | Benchmarks for Hsdlib API |
+| File                 | Description               |
+|:---------------------|:--------------------------|
+| [`tests`](tests)     | Unit tests for Hsdlib API |
+| [`benches`](benches) | Benchmarks for Hsdlib API |
 
 To run the tests and benchmarks, use the `make test` and `make bench` commands.
 
