@@ -27,7 +27,7 @@ static inline uint8_t simple_popcount8(uint8_t val) {
 #endif
 }
 
-static void check_float_result(const char *test_name, const char *func_name_str,
+static void check_float_result(const char* test_name, const char* func_name_str,
                                float expected_result, float actual_result, float tolerance) {
     int comparison_ok = 0;
 
@@ -61,7 +61,7 @@ static void check_float_result(const char *test_name, const char *func_name_str,
     }
 }
 
-static void check_u64_result(const char *test_name, const char *func_name_str,
+static void check_u64_result(const char* test_name, const char* func_name_str,
                              uint64_t expected_result, uint64_t actual_result) {
     if (expected_result == actual_result) {
         printf("PASS: %s [%s] (Expected: %" PRIu64 ", Actual: %" PRIu64 ")\n", test_name,
@@ -74,8 +74,8 @@ static void check_u64_result(const char *test_name, const char *func_name_str,
     }
 }
 
-void run_test_f32(hsd_func_f32_f32 func_to_test, const char *func_name_str, const char *test_name,
-                  const float *a, const float *b, size_t n, float expected_result,
+void run_test_f32(hsd_func_f32_f32 func_to_test, const char* func_name_str, const char* test_name,
+                  const float* a, const float* b, size_t n, float expected_result,
                   float tolerance) {
     printf("-- Running test: %s [%s] (n=%zu) --\n", test_name, func_name_str, n);
     hsd_log("Test setup: expected=%.8f, tolerance=%.8e", expected_result, tolerance);
@@ -95,8 +95,8 @@ void run_test_f32(hsd_func_f32_f32 func_to_test, const char *func_name_str, cons
     printf("\n");
 }
 
-void run_test_u64_u8_input(hsd_func_u8_u64 func_to_test, const char *func_name_str,
-                           const char *test_name, const uint8_t *a, const uint8_t *b, size_t n,
+void run_test_u64_u8_input(hsd_func_u8_u64 func_to_test, const char* func_name_str,
+                           const char* test_name, const uint8_t* a, const uint8_t* b, size_t n,
                            uint64_t expected_result) {
     printf("-- Running test: %s [%s] (n=%zu) --\n", test_name, func_name_str, n);
     hsd_log("Test setup: expected=%" PRIu64, expected_result);
@@ -116,8 +116,8 @@ void run_test_u64_u8_input(hsd_func_u8_u64 func_to_test, const char *func_name_s
     printf("\n");
 }
 
-void run_test_f32_u16_input(hsd_func_u16_f32 func_to_test, const char *func_name_str,
-                            const char *test_name, const uint16_t *a, const uint16_t *b, size_t n,
+void run_test_f32_u16_input(hsd_func_u16_f32 func_to_test, const char* func_name_str,
+                            const char* test_name, const uint16_t* a, const uint16_t* b, size_t n,
                             float expected_result, float tolerance) {
     printf("-- Running test: %s [%s] (n=%zu) --\n", test_name, func_name_str, n);
     hsd_log("Test setup: expected=%.8f, tolerance=%.8e", expected_result, tolerance);
@@ -137,7 +137,7 @@ void run_test_f32_u16_input(hsd_func_u16_f32 func_to_test, const char *func_name
     printf("\n");
 }
 
-static void run_test_expect_failure_generic(const char *func_name_str, const char *test_name,
+static void run_test_expect_failure_generic(const char* func_name_str, const char* test_name,
                                             size_t n, hsd_status_t actual_status) {
     printf("-- Running test: %s [%s] (n=%zu) --\n", test_name, func_name_str, n);
     hsd_log("Test setup: Expecting non-HSD_SUCCESS status");
@@ -154,31 +154,31 @@ static void run_test_expect_failure_generic(const char *func_name_str, const cha
     printf("\n");
 }
 
-void run_test_expect_failure_status_f32(hsd_func_f32_f32 func_to_test, const char *func_name_str,
-                                        const char *test_name, const float *a, const float *b,
+void run_test_expect_failure_status_f32(hsd_func_f32_f32 func_to_test, const char* func_name_str,
+                                        const char* test_name, const float* a, const float* b,
                                         size_t n) {
     float dummy_result = -999.0f;
     hsd_status_t status = func_to_test(a, b, n, &dummy_result);
     run_test_expect_failure_generic(func_name_str, test_name, n, status);
 }
 
-void run_test_expect_failure_status_u8(hsd_func_u8_u64 func_to_test, const char *func_name_str,
-                                       const char *test_name, const uint8_t *a, const uint8_t *b,
+void run_test_expect_failure_status_u8(hsd_func_u8_u64 func_to_test, const char* func_name_str,
+                                       const char* test_name, const uint8_t* a, const uint8_t* b,
                                        size_t n) {
     uint64_t dummy_result = UINT64_MAX;
     hsd_status_t status = func_to_test(a, b, n, &dummy_result);
     run_test_expect_failure_generic(func_name_str, test_name, n, status);
 }
 
-void run_test_expect_failure_status_u16(hsd_func_u16_f32 func_to_test, const char *func_name_str,
-                                        const char *test_name, const uint16_t *a, const uint16_t *b,
+void run_test_expect_failure_status_u16(hsd_func_u16_f32 func_to_test, const char* func_name_str,
+                                        const char* test_name, const uint16_t* a, const uint16_t* b,
                                         size_t n) {
     float dummy_result = -999.0f;
     hsd_status_t status = func_to_test(a, b, n, &dummy_result);
     run_test_expect_failure_generic(func_name_str, test_name, n, status);
 }
 
-float simple_sqeuclidean_f32(const float *a, const float *b, const size_t n) {
+float simple_sqeuclidean_f32(const float* a, const float* b, const size_t n) {
     if (n == 0) return 0.0f;
     double sum = 0.0;
     for (size_t i = 0; i < n; ++i) {
@@ -194,7 +194,7 @@ float simple_sqeuclidean_f32(const float *a, const float *b, const size_t n) {
     return (float)sum;
 }
 
-float simple_cosine_sim_f32(const float *a, const float *b, const size_t n) {
+float simple_cosine_sim_f32(const float* a, const float* b, const size_t n) {
     if (n == 0) return 1.0f;  // Define similarity of zero-length vectors as 1.0
 
     double dot_product = 0.0;
@@ -242,7 +242,7 @@ float simple_cosine_sim_f32(const float *a, const float *b, const size_t n) {
     return (float)similarity;
 }
 
-float simple_dot_f32(const float *a, const float *b, const size_t n) {
+float simple_dot_f32(const float* a, const float* b, const size_t n) {
     if (n == 0) return 0.0f;
     double dot_product = 0.0;
     for (size_t i = 0; i < n; ++i) {
@@ -260,7 +260,7 @@ float simple_dot_f32(const float *a, const float *b, const size_t n) {
     return (float)dot_product;
 }
 
-float simple_manhattan_f32(const float *a, const float *b, const size_t n) {
+float simple_manhattan_f32(const float* a, const float* b, const size_t n) {
     if (n == 0) return 0.0f;
     double sum_abs_diff = 0.0;
     for (size_t i = 0; i < n; ++i) {
@@ -275,7 +275,7 @@ float simple_manhattan_f32(const float *a, const float *b, const size_t n) {
     return (float)sum_abs_diff;
 }
 
-uint64_t simple_hamming_u8(const uint8_t *a, const uint8_t *b, const size_t n) {
+uint64_t simple_hamming_u8(const uint8_t* a, const uint8_t* b, const size_t n) {
     if (n == 0) return 0;
 
     uint64_t diff_count = 0;
@@ -285,7 +285,7 @@ uint64_t simple_hamming_u8(const uint8_t *a, const uint8_t *b, const size_t n) {
     return diff_count;
 }
 
-float simple_jaccard_sim_u16(const uint16_t *a, const uint16_t *b, const size_t n) {
+float simple_jaccard_sim_u16(const uint16_t* a, const uint16_t* b, const size_t n) {
     if (n == 0) return 1.0f;  // Define similarity of zero-length vectors as 1.0
 
     uint64_t dot_p = 0;

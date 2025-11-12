@@ -27,12 +27,12 @@ typedef struct {
     uint64_t norm_b_sq;
 } HSD_TripleSumU64;
 
-typedef hsd_status_t (*hsd_jaccard_get_sums_func_t)(const uint16_t *, const uint16_t *, size_t,
-                                                    HSD_TripleSumU64 *);
+typedef hsd_status_t (*hsd_jaccard_get_sums_func_t)(const uint16_t*, const uint16_t*, size_t,
+                                                    HSD_TripleSumU64*);
 
 static inline hsd_status_t calculate_jaccard_similarity_from_sums_u64(uint64_t dot, uint64_t nAsq,
                                                                       uint64_t nBsq,
-                                                                      float *result) {
+                                                                      float* result) {
     if (nAsq == 0 && nBsq == 0) {
         *result = 1.0f;
         return HSD_SUCCESS;
@@ -63,8 +63,8 @@ static inline hsd_status_t calculate_jaccard_similarity_from_sums_u64(uint64_t d
     return HSD_SUCCESS;
 }
 
-static hsd_status_t jaccard_get_sums_scalar_internal(const uint16_t *a, const uint16_t *b, size_t n,
-                                                     HSD_TripleSumU64 *sums) {
+static hsd_status_t jaccard_get_sums_scalar_internal(const uint16_t* a, const uint16_t* b, size_t n,
+                                                     HSD_TripleSumU64* sums) {
     hsd_log("Enter jaccard_scalar_internal<u16> (n=%zu)", n);
     uint64_t dot_p = 0, n_a_sq = 0, n_b_sq = 0;
     for (size_t i = 0; i < n; ++i) {
@@ -83,7 +83,7 @@ static hsd_status_t jaccard_get_sums_scalar_internal(const uint16_t *a, const ui
 
 #if defined(__x86_64__) || defined(_M_X64)
 __attribute__((target("avx2"))) static hsd_status_t jaccard_get_sums_avx2_internal(
-    const uint16_t *a, const uint16_t *b, size_t n, HSD_TripleSumU64 *sums) {
+    const uint16_t* a, const uint16_t* b, size_t n, HSD_TripleSumU64* sums) {
     hsd_log("Enter jaccard_avx2_internal<u16> (n=%zu)", n);
     size_t i = 0;
     __m256i dot_acc = _mm256_setzero_si256();
@@ -91,8 +91,8 @@ __attribute__((target("avx2"))) static hsd_status_t jaccard_get_sums_avx2_intern
     __m256i b_acc = _mm256_setzero_si256();
 
     for (; i + 16 <= n; i += 16) {
-        __m256i va16 = _mm256_loadu_si256((const __m256i *)(a + i));
-        __m256i vb16 = _mm256_loadu_si256((const __m256i *)(b + i));
+        __m256i va16 = _mm256_loadu_si256((const __m256i*)(a + i));
+        __m256i vb16 = _mm256_loadu_si256((const __m256i*)(b + i));
         __m128i va_lo = _mm256_castsi256_si128(va16);
         __m128i va_hi = _mm256_extracti128_si256(va16, 1);
         __m128i vb_lo = _mm256_castsi256_si128(vb16);
@@ -139,9 +139,9 @@ __attribute__((target("avx2"))) static hsd_status_t jaccard_get_sums_avx2_intern
     }
 
     uint64_t dot_s[4], a_s[4], b_s[4];
-    _mm256_storeu_si256((__m256i *)dot_s, dot_acc);
-    _mm256_storeu_si256((__m256i *)a_s, a_acc);
-    _mm256_storeu_si256((__m256i *)b_s, b_acc);
+    _mm256_storeu_si256((__m256i*)dot_s, dot_acc);
+    _mm256_storeu_si256((__m256i*)a_s, a_acc);
+    _mm256_storeu_si256((__m256i*)b_s, b_acc);
 
     uint64_t dot_p = dot_s[0] + dot_s[1] + dot_s[2] + dot_s[3];
     uint64_t n_a_sq = a_s[0] + a_s[1] + a_s[2] + a_s[3];
@@ -161,8 +161,8 @@ __attribute__((target("avx2"))) static hsd_status_t jaccard_get_sums_avx2_intern
 }
 
 __attribute__((target("avx512f,avx512bw,avx512dq"))) static hsd_status_t
-jaccard_get_sums_avx512_internal(const uint16_t *a, const uint16_t *b, size_t n,
-                                 HSD_TripleSumU64 *sums) {
+jaccard_get_sums_avx512_internal(const uint16_t* a, const uint16_t* b, size_t n,
+                                 HSD_TripleSumU64* sums) {
     hsd_log("Enter jaccard_avx512_internal<u16> (n=%zu)", n);
     size_t i = 0;
     __m512i dot_acc = _mm512_setzero_si512();
@@ -170,8 +170,8 @@ jaccard_get_sums_avx512_internal(const uint16_t *a, const uint16_t *b, size_t n,
     __m512i b_acc = _mm512_setzero_si512();
 
     for (; i + 32 <= n; i += 32) {
-        __m512i va16 = _mm512_loadu_si512((const __m512i *)(a + i));
-        __m512i vb16 = _mm512_loadu_si512((const __m512i *)(b + i));
+        __m512i va16 = _mm512_loadu_si512((const __m512i*)(a + i));
+        __m512i vb16 = _mm512_loadu_si512((const __m512i*)(b + i));
 
         __m256i va16_lo = _mm512_extracti64x4_epi64(va16, 0);
         __m256i va16_hi = _mm512_extracti64x4_epi64(va16, 1);
@@ -229,8 +229,8 @@ jaccard_get_sums_avx512_internal(const uint16_t *a, const uint16_t *b, size_t n,
 #endif /* __x86_64__ */
 
 #if defined(__aarch64__) || defined(__arm__)
-static hsd_status_t jaccard_get_sums_neon_internal(const uint16_t *a, const uint16_t *b, size_t n,
-                                                   HSD_TripleSumU64 *sums) {
+static hsd_status_t jaccard_get_sums_neon_internal(const uint16_t* a, const uint16_t* b, size_t n,
+                                                   HSD_TripleSumU64* sums) {
     hsd_log("Enter jaccard_neon_internal<u16> (n=%zu)", n);
     size_t i = 0;
     uint64x2_t dot_acc = vdupq_n_u64(0);
@@ -281,7 +281,7 @@ static hsd_status_t jaccard_get_sums_neon_internal(const uint16_t *a, const uint
 
 #if defined(__ARM_FEATURE_SVE)
 __attribute__((target("+sve"))) static hsd_status_t jaccard_get_sums_sve_internal(
-    const uint16_t *a, const uint16_t *b, size_t n, HSD_TripleSumU64 *sums) {
+    const uint16_t* a, const uint16_t* b, size_t n, HSD_TripleSumU64* sums) {
     hsd_log("Enter jaccard_sve_internal<u16> (n=%zu)", n);
     int64_t i = 0;
     int64_t n_sve = (int64_t)n;
@@ -330,13 +330,13 @@ __attribute__((target("+sve"))) static hsd_status_t jaccard_get_sums_sve_interna
 #endif
 
 static hsd_jaccard_get_sums_func_t resolve_jaccard_get_sums_internal(void);
-static hsd_status_t jaccard_get_sums_resolver_trampoline(const uint16_t *, const uint16_t *, size_t,
-                                                         HSD_TripleSumU64 *);
+static hsd_status_t jaccard_get_sums_resolver_trampoline(const uint16_t*, const uint16_t*, size_t,
+                                                         HSD_TripleSumU64*);
 
 static atomic_uintptr_t hsd_jaccard_get_sums_ptr =
     ATOMIC_VAR_INIT((uintptr_t)jaccard_get_sums_resolver_trampoline);
 
-hsd_status_t hsd_sim_jaccard_u16(const uint16_t *a, const uint16_t *b, size_t n, float *result) {
+hsd_status_t hsd_sim_jaccard_u16(const uint16_t* a, const uint16_t* b, size_t n, float* result) {
     if (result == NULL) return HSD_ERR_NULL_PTR;
     if (n == 0) {
         *result = 1.0f;
@@ -360,8 +360,8 @@ hsd_status_t hsd_sim_jaccard_u16(const uint16_t *a, const uint16_t *b, size_t n,
                                                       sums.norm_b_sq, result);
 }
 
-static hsd_status_t jaccard_get_sums_resolver_trampoline(const uint16_t *a, const uint16_t *b,
-                                                         size_t n, HSD_TripleSumU64 *sums) {
+static hsd_status_t jaccard_get_sums_resolver_trampoline(const uint16_t* a, const uint16_t* b,
+                                                         size_t n, HSD_TripleSumU64* sums) {
     hsd_jaccard_get_sums_func_t resolved = resolve_jaccard_get_sums_internal();
 
     uintptr_t expect = (uintptr_t)jaccard_get_sums_resolver_trampoline;
@@ -377,7 +377,7 @@ static hsd_jaccard_get_sums_func_t resolve_jaccard_get_sums_internal(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
 
     hsd_jaccard_get_sums_func_t chosen = jaccard_get_sums_scalar_internal;
-    const char *reason = "Scalar (Default)";
+    const char* reason = "Scalar (Default)";
 
     if (forced != HSD_BACKEND_AUTO) {
         hsd_log("Jaccard U16: Forced backend %d", forced);

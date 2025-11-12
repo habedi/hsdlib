@@ -15,9 +15,9 @@
 #endif
 #endif
 
-typedef hsd_status_t (*hsd_dot_f32_func_t)(const float *, const float *, size_t, float *);
+typedef hsd_status_t (*hsd_dot_f32_func_t)(const float*, const float*, size_t, float*);
 
-static hsd_status_t dot_scalar_internal(const float *a, const float *b, size_t n, float *result) {
+static hsd_status_t dot_scalar_internal(const float* a, const float* b, size_t n, float* result) {
     hsd_log("Enter dot_scalar_internal (n=%zu)", n);
     float dot_product = 0.0f;
     for (size_t i = 0; i < n; ++i) {
@@ -40,8 +40,8 @@ static hsd_status_t dot_scalar_internal(const float *a, const float *b, size_t n
 }
 
 #if defined(__x86_64__) || defined(_M_X64)
-__attribute__((target("avx"))) static hsd_status_t dot_avx_internal(const float *a, const float *b,
-                                                                    size_t n, float *result) {
+__attribute__((target("avx"))) static hsd_status_t dot_avx_internal(const float* a, const float* b,
+                                                                    size_t n, float* result) {
     hsd_log("Enter dot_avx_internal (n=%zu)", n);
     size_t i = 0;
     __m256 dot_acc = _mm256_setzero_ps();
@@ -74,9 +74,9 @@ __attribute__((target("avx"))) static hsd_status_t dot_avx_internal(const float 
     return HSD_SUCCESS;
 }
 
-__attribute__((target("avx2,fma"))) static hsd_status_t dot_avx2_internal(const float *a,
-                                                                          const float *b, size_t n,
-                                                                          float *result) {
+__attribute__((target("avx2,fma"))) static hsd_status_t dot_avx2_internal(const float* a,
+                                                                          const float* b, size_t n,
+                                                                          float* result) {
     hsd_log("Enter dot_avx2_internal (n=%zu)", n);
     size_t i = 0;
     __m256 dot_acc = _mm256_setzero_ps();
@@ -105,9 +105,9 @@ __attribute__((target("avx2,fma"))) static hsd_status_t dot_avx2_internal(const 
     return HSD_SUCCESS;
 }
 
-__attribute__((target("avx512f"))) static hsd_status_t dot_avx512_internal(const float *a,
-                                                                           const float *b, size_t n,
-                                                                           float *result) {
+__attribute__((target("avx512f"))) static hsd_status_t dot_avx512_internal(const float* a,
+                                                                           const float* b, size_t n,
+                                                                           float* result) {
     hsd_log("Enter dot_avx512_internal (n=%zu)", n);
     size_t i = 0;
     __m512 dot_acc = _mm512_setzero_ps();
@@ -138,7 +138,7 @@ __attribute__((target("avx512f"))) static hsd_status_t dot_avx512_internal(const
 #endif
 
 #if defined(__aarch64__) || defined(__arm__)
-static hsd_status_t dot_neon_internal(const float *a, const float *b, size_t n, float *result) {
+static hsd_status_t dot_neon_internal(const float* a, const float* b, size_t n, float* result) {
     hsd_log("Enter dot_neon_internal (n=%zu)", n);
     size_t i = 0;
     float32x4_t dot_acc = vdupq_n_f32(0.0f);
@@ -174,8 +174,8 @@ static hsd_status_t dot_neon_internal(const float *a, const float *b, size_t n, 
 }
 
 #if defined(__ARM_FEATURE_SVE)
-__attribute__((target("+sve"))) static hsd_status_t dot_sve_internal(const float *a, const float *b,
-                                                                     size_t n, float *result) {
+__attribute__((target("+sve"))) static hsd_status_t dot_sve_internal(const float* a, const float* b,
+                                                                     size_t n, float* result) {
     hsd_log("Enter dot_sve_internal (n=%zu)", n);
     int64_t i = 0;
     int64_t n_sve = (int64_t)n;
@@ -206,12 +206,12 @@ __attribute__((target("+sve"))) static hsd_status_t dot_sve_internal(const float
 #endif
 
 static hsd_dot_f32_func_t resolve_dot_f32_internal(void);
-static hsd_status_t dot_f32_resolver_trampoline(const float *a, const float *b, size_t n,
-                                                float *result);
+static hsd_status_t dot_f32_resolver_trampoline(const float* a, const float* b, size_t n,
+                                                float* result);
 
 static atomic_uintptr_t hsd_dot_f32_ptr = ATOMIC_VAR_INIT((uintptr_t)dot_f32_resolver_trampoline);
 
-hsd_status_t hsd_sim_dot_f32(const float *a, const float *b, size_t n, float *result) {
+hsd_status_t hsd_sim_dot_f32(const float* a, const float* b, size_t n, float* result) {
     if (result == NULL) return HSD_ERR_NULL_PTR;
     if (n == 0) {
         *result = 0.0f;
@@ -226,8 +226,8 @@ hsd_status_t hsd_sim_dot_f32(const float *a, const float *b, size_t n, float *re
     return func(a, b, n, result);
 }
 
-static hsd_status_t dot_f32_resolver_trampoline(const float *a, const float *b, size_t n,
-                                                float *result) {
+static hsd_status_t dot_f32_resolver_trampoline(const float* a, const float* b, size_t n,
+                                                float* result) {
     hsd_dot_f32_func_t resolved = resolve_dot_f32_internal();
     uintptr_t expected = (uintptr_t)dot_f32_resolver_trampoline;
     atomic_compare_exchange_strong_explicit(&hsd_dot_f32_ptr, &expected, (uintptr_t)resolved,
@@ -238,7 +238,7 @@ static hsd_status_t dot_f32_resolver_trampoline(const float *a, const float *b, 
 static hsd_dot_f32_func_t resolve_dot_f32_internal(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
     hsd_dot_f32_func_t chosen_func = dot_scalar_internal;
-    const char *reason = "Scalar (Default)";
+    const char* reason = "Scalar (Default)";
 
     if (forced != HSD_BACKEND_AUTO) {
         hsd_log("Dot F32: Manual backend requested: %d", forced);

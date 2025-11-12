@@ -27,11 +27,11 @@ jobs:
         run: |
           set -e
           make test-amd64 > full_test_log.log 2>&1 || echo $? > .exit_code
-          
+
           echo "::group::Test Log Output"
           cat full_test_log.log
           echo "::endgroup::"
-          
+
           if [ -f .exit_code ]; then
             echo "Tests failed with exit code $(cat .exit_code)"
             exit $(cat .exit_code)

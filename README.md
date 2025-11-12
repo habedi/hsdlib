@@ -170,7 +170,7 @@ The `HSD_Backend` enum is defined as follows:
 typedef enum {
     HSD_BACKEND_AUTO = 0, // Backend is automatically selected at runtime (default)
     HSD_BACKEND_SCALAR, // Fallback scalar backend (no SIMD instructions)
-    
+
     /* AMD64 (AKA X86_64) backends */
     HSD_BACKEND_AVX, // AVX backend
     HSD_BACKEND_AVX2, // AVX2 backend
@@ -178,7 +178,7 @@ typedef enum {
     HSD_BACKEND_AVX512BW, // AVX512BW backend
     HSD_BACKEND_AVX512DQ, // AVX512DQ backend
     HSD_BACKEND_AVX512VPOPCNTDQ, // AVX512VPOPCNTDQ backend
-    
+
     /* AArch64 (AKA ARM64) backends */
     HSD_BACKEND_NEON, // NEON backend
     HSD_BACKEND_SVE // SVE backend

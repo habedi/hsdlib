@@ -9,7 +9,7 @@ void run_sqeuclidean_dist_tests(void) {
     printf("\n======= Running Squared Euclidean Distance Tests =======\n");
 
     hsd_func_f32_f32 func_ptr = hsd_dist_sqeuclidean_f32;
-    const char *func_name = "hsd_dist_sqeuclidean_f32";
+    const char* func_name = "hsd_dist_sqeuclidean_f32";
 
     const float vec1[] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f};
     const float vec2[] = {9.0f, 8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f};
@@ -134,10 +134,10 @@ void run_sqeuclidean_dist_tests(void) {
     const size_t LARGE_N2 = 4096 + 7;  // Test remainder handling
 
     // Allocate memory
-    float *large_a1 = (float *)malloc(LARGE_N1 * sizeof(float));
-    float *large_b1 = (float *)malloc(LARGE_N1 * sizeof(float));
-    float *large_a2 = (float *)malloc(LARGE_N2 * sizeof(float));
-    float *large_b2 = (float *)malloc(LARGE_N2 * sizeof(float));
+    float* large_a1 = (float*)malloc(LARGE_N1 * sizeof(float));
+    float* large_b1 = (float*)malloc(LARGE_N1 * sizeof(float));
+    float* large_a2 = (float*)malloc(LARGE_N2 * sizeof(float));
+    float* large_b2 = (float*)malloc(LARGE_N2 * sizeof(float));
 
     if (!large_a1 || !large_b1 || !large_a2 || !large_b2) {
         fprintf(stderr, "FAIL: Failed to allocate memory for large vector tests [%s]\n", func_name);

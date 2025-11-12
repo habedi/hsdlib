@@ -26,4 +26,3 @@ jobs:
       - name: Run Tests for Makefile
         run: |
           bash test_makefile.sh
-

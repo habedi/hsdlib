@@ -54,15 +54,15 @@ typedef enum {
 extern "C" {
 #endif
 
-hsd_status_t hsd_dist_sqeuclidean_f32(const float *a, const float *b, size_t n, float *result);
-hsd_status_t hsd_dist_manhattan_f32(const float *a, const float *b, size_t n, float *result);
-hsd_status_t hsd_dist_hamming_u8(const uint8_t *a, const uint8_t *b, size_t n, uint64_t *result);
+hsd_status_t hsd_dist_sqeuclidean_f32(const float* a, const float* b, size_t n, float* result);
+hsd_status_t hsd_dist_manhattan_f32(const float* a, const float* b, size_t n, float* result);
+hsd_status_t hsd_dist_hamming_u8(const uint8_t* a, const uint8_t* b, size_t n, uint64_t* result);
 
-hsd_status_t hsd_sim_dot_f32(const float *a, const float *b, size_t n, float *result);
-hsd_status_t hsd_sim_cosine_f32(const float *a, const float *b, size_t n, float *result);
-hsd_status_t hsd_sim_jaccard_u16(const uint16_t *a, const uint16_t *b, size_t n, float *result);
+hsd_status_t hsd_sim_dot_f32(const float* a, const float* b, size_t n, float* result);
+hsd_status_t hsd_sim_cosine_f32(const float* a, const float* b, size_t n, float* result);
+hsd_status_t hsd_sim_jaccard_u16(const uint16_t* a, const uint16_t* b, size_t n, float* result);
 
-const char *hsd_get_backend(void);
+const char* hsd_get_backend(void);
 bool hsd_has_avx512(void);
 hsd_fp_status_t hsd_get_fp_mode_status(void);
 
@@ -85,7 +85,7 @@ bool hsd_cpu_has_sve(void);
 #ifdef HSD_DEBUG
 #include <stdarg.h>
 #include <stdio.h>
-static inline void hsdlib_internal_do_log(const char *format, ...) {
+static inline void hsdlib_internal_do_log(const char* format, ...) {
     va_list args;
     va_start(args, format);
     fprintf(stderr, "[HSDLIB_DEBUG] ");

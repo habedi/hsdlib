@@ -14,7 +14,7 @@ void run_utils_tests(void) {
 
     printf("-- Running test: hsd_get_backend check --\n");
     hsd_set_manual_backend(HSD_BACKEND_AUTO);
-    const char *backend_auto = hsd_get_backend();
+    const char* backend_auto = hsd_get_backend();
     printf("INFO: Auto backend string: \"%s\"\n", backend_auto ? backend_auto : "NULL");
     if (backend_auto != NULL) {
         printf("PASS: hsd_get_backend() returned non-NULL in AUTO mode.\n");
@@ -25,10 +25,10 @@ void run_utils_tests(void) {
 
     hsd_status_t status = hsd_set_manual_backend(HSD_BACKEND_SCALAR);
     if (status == HSD_SUCCESS) {
-        const char *backend_manual = hsd_get_backend();
+        const char* backend_manual = hsd_get_backend();
         printf("INFO: Forced SCALAR backend string: \"%s\"\n",
                backend_manual ? backend_manual : "NULL");
-        const char *expected_manual = "Forced Scalar";
+        const char* expected_manual = "Forced Scalar";
         if (backend_manual != NULL && strcmp(backend_manual, expected_manual) == 0) {
             printf("PASS: hsd_get_backend() returned expected string for forced SCALAR.\n");
         } else {

@@ -11,7 +11,7 @@ void run_jaccard_sim_tests(void) {
     printf("\n======= Running Jaccard Similarity Tests (uint16_t) =======\n");
 
     hsd_func_u16_f32 func_ptr = hsd_sim_jaccard_u16;
-    const char *func_name = "hsd_sim_jaccard_u16";
+    const char* func_name = "hsd_sim_jaccard_u16";
 
     const uint16_t vec1[] = {1, 2, 0};
     const uint16_t vec2[] = {1, 0, 3};
@@ -108,10 +108,10 @@ void run_jaccard_sim_tests(void) {
     const size_t LARGE_N2 = 4096 + 7;  // Test remainder handling
 
     // Allocate memory
-    uint16_t *large_a1 = (uint16_t *)malloc(LARGE_N1 * sizeof(uint16_t));
-    uint16_t *large_b1 = (uint16_t *)malloc(LARGE_N1 * sizeof(uint16_t));
-    uint16_t *large_a2 = (uint16_t *)malloc(LARGE_N2 * sizeof(uint16_t));
-    uint16_t *large_b2 = (uint16_t *)malloc(LARGE_N2 * sizeof(uint16_t));
+    uint16_t* large_a1 = (uint16_t*)malloc(LARGE_N1 * sizeof(uint16_t));
+    uint16_t* large_b1 = (uint16_t*)malloc(LARGE_N1 * sizeof(uint16_t));
+    uint16_t* large_a2 = (uint16_t*)malloc(LARGE_N2 * sizeof(uint16_t));
+    uint16_t* large_b2 = (uint16_t*)malloc(LARGE_N2 * sizeof(uint16_t));
 
     if (!large_a1 || !large_b1 || !large_a2 || !large_b2) {
         fprintf(stderr, "FAIL: Failed to allocate memory for large vector tests [%s]\n", func_name);

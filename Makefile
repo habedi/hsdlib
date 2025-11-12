@@ -482,3 +482,20 @@ all: rebuild test ## Build and run tests
 
 # Include dependency files
 -include $(DEP_FILES)
+
+
+########################################################################################
+## Additional targets
+########################################################################################
+
+.PHONY: setup-hooks
+setup-hooks: ## Install Git hooks (pre-commit and pre-push)
+	@echo "Installing Git hooks..."
+	@pre-commit install --hook-type pre-commit
+	@pre-commit install --hook-type pre-push
+	@pre-commit install-hooks
+
+.PHONY: test-hooks
+test-hooks: ## Test Git hooks on all files
+	@echo "Testing Git hooks..."
+	@pre-commit run --all-files

@@ -21,7 +21,7 @@ extern bool hsd_cpu_has_sve(void);
 #endif
 #endif
 
-typedef hsd_status_t (*hsd_hamming_u8_func_t)(const uint8_t *, const uint8_t *, size_t, uint64_t *);
+typedef hsd_status_t (*hsd_hamming_u8_func_t)(const uint8_t*, const uint8_t*, size_t, uint64_t*);
 
 #ifndef __has_builtin
 #define __has_builtin(x) 0
@@ -39,8 +39,8 @@ static inline uint8_t hsd_internal_popcount8(uint8_t val) {
 #endif
 }
 
-static hsd_status_t hamming_scalar_internal(const uint8_t *a, const uint8_t *b, size_t n,
-                                            uint64_t *result) {
+static hsd_status_t hamming_scalar_internal(const uint8_t* a, const uint8_t* b, size_t n,
+                                            uint64_t* result) {
     hsd_log("Enter hamming_scalar_internal (n=%zu)", n);
     uint64_t total = 0;
     for (size_t i = 0; i < n; ++i) {
@@ -52,18 +52,18 @@ static hsd_status_t hamming_scalar_internal(const uint8_t *a, const uint8_t *b, 
 
 #if defined(__x86_64__) || defined(_M_X64)
 __attribute__((target("avx512f,avx512vpopcntdq"))) static hsd_status_t
-hamming_avx512_vpopcntdq_internal(const uint8_t *a, const uint8_t *b, size_t n, uint64_t *result) {
+hamming_avx512_vpopcntdq_internal(const uint8_t* a, const uint8_t* b, size_t n, uint64_t* result) {
     hsd_log("Enter hamming_avx512_vpopcntdq_internal (n=%zu)", n);
     size_t i = 0;
     __m512i acc = _mm512_setzero_si512();
     for (; i + 64 <= n; i += 64) {
-        __m512i va = _mm512_loadu_si512((const __m512i *)(a + i));
-        __m512i vb = _mm512_loadu_si512((const __m512i *)(b + i));
+        __m512i va = _mm512_loadu_si512((const __m512i*)(a + i));
+        __m512i vb = _mm512_loadu_si512((const __m512i*)(b + i));
         __m512i x = _mm512_xor_si512(va, vb);
         acc = _mm512_add_epi64(acc, _mm512_popcnt_epi64(x));
     }
     uint64_t sums[8];
-    _mm512_storeu_si512((__m512i *)sums, acc);
+    _mm512_storeu_si512((__m512i*)sums, acc);
     uint64_t total = 0;
     for (int j = 0; j < 8; ++j) total += sums[j];
     for (; i < n; ++i) total += (uint64_t)hsd_internal_popcount8(a[i] ^ b[i]);
@@ -71,23 +71,23 @@ hamming_avx512_vpopcntdq_internal(const uint8_t *a, const uint8_t *b, size_t n, 
     return HSD_SUCCESS;
 }
 
-__attribute__((target("avx2"))) static hsd_status_t hamming_avx2_pshufb_internal(const uint8_t *a,
-                                                                                 const uint8_t *b,
+__attribute__((target("avx2"))) static hsd_status_t hamming_avx2_pshufb_internal(const uint8_t* a,
+                                                                                 const uint8_t* b,
                                                                                  size_t n,
-                                                                                 uint64_t *result) {
+                                                                                 uint64_t* result) {
     hsd_log("Enter hamming_avx2_pshufb_internal (n=%zu)", n);
 
     static const uint8_t popcount_table[32] = {0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
                                                0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4};
 
-    const __m256i lookup = _mm256_loadu_si256((const __m256i *)popcount_table);
+    const __m256i lookup = _mm256_loadu_si256((const __m256i*)popcount_table);
     const __m256i low_mask = _mm256_set1_epi8(0x0F);
     size_t i = 0;
     __m256i acc = _mm256_setzero_si256();
 
     for (; i + 32 <= n; i += 32) {
-        __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
-        __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
+        __m256i va = _mm256_loadu_si256((const __m256i*)(a + i));
+        __m256i vb = _mm256_loadu_si256((const __m256i*)(b + i));
         __m256i x = _mm256_xor_si256(va, vb);
 
         __m256i lo = _mm256_and_si256(x, low_mask);
@@ -101,7 +101,7 @@ __attribute__((target("avx2"))) static hsd_status_t hamming_avx2_pshufb_internal
     }
 
     uint64_t sums[4];
-    _mm256_storeu_si256((__m256i *)sums, acc);
+    _mm256_storeu_si256((__m256i*)sums, acc);
     uint64_t total = sums[0] + sums[1] + sums[2] + sums[3];
 
     for (; i < n; ++i) {
@@ -115,8 +115,8 @@ __attribute__((target("avx2"))) static hsd_status_t hamming_avx2_pshufb_internal
 #endif
 
 #if defined(__aarch64__) || defined(__arm__)
-static hsd_status_t hamming_neon_internal(const uint8_t *a, const uint8_t *b, size_t n,
-                                          uint64_t *result) {
+static hsd_status_t hamming_neon_internal(const uint8_t* a, const uint8_t* b, size_t n,
+                                          uint64_t* result) {
     hsd_log("Enter hamming_neon_internal (n=%zu)", n);
     size_t i = 0;
     uint64x2_t acc = vdupq_n_u64(0);
@@ -138,9 +138,9 @@ static hsd_status_t hamming_neon_internal(const uint8_t *a, const uint8_t *b, si
 }
 
 #if defined(__ARM_FEATURE_SVE)
-__attribute__((target("+sve"))) static hsd_status_t hamming_sve_internal(const uint8_t *a,
-                                                                         const uint8_t *b, size_t n,
-                                                                         uint64_t *result) {
+__attribute__((target("+sve"))) static hsd_status_t hamming_sve_internal(const uint8_t* a,
+                                                                         const uint8_t* b, size_t n,
+                                                                         uint64_t* result) {
     hsd_log("Enter hamming_sve_internal (n=%zu)", n);
     int64_t i = 0;
     int64_t n_sve = (int64_t)n;
@@ -174,13 +174,13 @@ __attribute__((target("+sve"))) static hsd_status_t hamming_sve_internal(const u
 #endif
 
 static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void);
-static hsd_status_t hamming_u8_resolver_trampoline(const uint8_t *, const uint8_t *, size_t,
-                                                   uint64_t *);
+static hsd_status_t hamming_u8_resolver_trampoline(const uint8_t*, const uint8_t*, size_t,
+                                                   uint64_t*);
 
 static atomic_uintptr_t hsd_hamming_u8_ptr =
     ATOMIC_VAR_INIT((uintptr_t)hamming_u8_resolver_trampoline);
 
-hsd_status_t hsd_dist_hamming_u8(const uint8_t *a, const uint8_t *b, size_t n, uint64_t *result) {
+hsd_status_t hsd_dist_hamming_u8(const uint8_t* a, const uint8_t* b, size_t n, uint64_t* result) {
     if (result == NULL) return HSD_ERR_NULL_PTR;
     if (n == 0) {
         *result = 0;
@@ -195,8 +195,8 @@ hsd_status_t hsd_dist_hamming_u8(const uint8_t *a, const uint8_t *b, size_t n, u
     return func(a, b, n, result);
 }
 
-static hsd_status_t hamming_u8_resolver_trampoline(const uint8_t *a, const uint8_t *b, size_t n,
-                                                   uint64_t *result) {
+static hsd_status_t hamming_u8_resolver_trampoline(const uint8_t* a, const uint8_t* b, size_t n,
+                                                   uint64_t* result) {
     hsd_hamming_u8_func_t resolved = resolve_hamming_u8_internal();
     uintptr_t exp = (uintptr_t)hamming_u8_resolver_trampoline;
     atomic_compare_exchange_strong_explicit(&hsd_hamming_u8_ptr, &exp, (uintptr_t)resolved,
@@ -207,7 +207,7 @@ static hsd_status_t hamming_u8_resolver_trampoline(const uint8_t *a, const uint8
 static hsd_hamming_u8_func_t resolve_hamming_u8_internal(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
     hsd_hamming_u8_func_t chosen_func = hamming_scalar_internal;
-    const char *reason = "Scalar (Default)";
+    const char* reason = "Scalar (Default)";
 
     if (forced != HSD_BACKEND_AUTO) {
         hsd_log("Hamming U8: Forced backend %d", forced);

@@ -135,7 +135,7 @@ HSD_Backend hsd_get_current_backend_choice(void) {
     return (HSD_Backend)atomic_load_explicit(&hsd_forced_backend, memory_order_acquire);
 }
 
-const char *hsd_get_backend(void) {
+const char* hsd_get_backend(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
     if (forced != HSD_BACKEND_AUTO) {
         switch (forced) {

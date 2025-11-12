@@ -34,4 +34,3 @@ jobs:
 
       - name: Run Benchmarks for AMD64
         run: make bench-amd64
-
