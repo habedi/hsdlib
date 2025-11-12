@@ -1,3 +1,12 @@
+/*!
+ * @file euclidean.c
+ * @brief Squared Euclidean distance implementations and runtime dispatch.
+ *
+ * This file contains the scalar and vectorized implementations of the
+ * squared Euclidean (L2 squared) distance for float vectors and the
+ * runtime resolver which selects an optimized backend at the first call.
+ */
+
 #include <float.h>
 #include <math.h>
 #include <stdatomic.h>

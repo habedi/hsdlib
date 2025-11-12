@@ -1,3 +1,11 @@
+/*!
+ * @file cosine.c
+ * @brief Cosine similarity implementations and dispatch.
+ *
+ * Implements cosine similarity (float32) with scalar and vectorized backends and
+ * a runtime resolver that selects the best implementation on the first call.
+ */
+
 #include <float.h>
 #include <math.h>
 #include <stdatomic.h>

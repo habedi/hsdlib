@@ -1,3 +1,11 @@
+/*!
+ * @file manhattan.c
+ * @brief Manhattan (L1) distance implementations and runtime dispatch.
+ *
+ * Contains scalar and vectorized implementations of Manhattan distance
+ * for float vectors and the runtime resolver used for backend dispatch.
+ */
+
 /*
  * If HSDLIB_NO_CHECKS is defined, all isnan/isinf tests
  * get compiled out for maximum speed.

@@ -1,3 +1,11 @@
+/*!
+ * @file jaccard.c
+ * @brief Jaccard similarity (u16) implementations and dispatch.
+ *
+ * Computes a Jaccard-like similarity for uint16_t vectors. Provides scalar and
+ * SIMD implementations along with a runtime resolver for backend selection.
+ */
+
 #include <math.h>
 #include <stdatomic.h>
 #include <stddef.h>

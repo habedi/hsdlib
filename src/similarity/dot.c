@@ -1,3 +1,11 @@
+/*!
+ * @file dot.c
+ * @brief Dot product implementations and runtime dispatch.
+ *
+ * Contains scalar and SIMD backends for computing float32 dot products and a
+ * resolver that selects the best backend at runtime.
+ */
+
 #include <float.h>
 #include <math.h>
 #include <stdatomic.h>

@@ -1,3 +1,12 @@
+/*!
+ * @file hamming.c
+ * @brief Hamming distance implementations and dispatch logic for uint8 arrays.
+ *
+ * Provides scalar and SIMD-accelerated implementations to compute the bitwise
+ * Hamming distance between two byte arrays. A runtime resolver selects the
+ * best available backend on the first call.
+ */
+
 #include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
