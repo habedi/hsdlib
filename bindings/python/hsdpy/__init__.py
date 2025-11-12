@@ -3,7 +3,7 @@ import importlib.metadata
 import logging
 import numpy as np
 import numpy.typing as npt
-from typing import Dict, Tuple, Union, Optional, Type, Any, cast
+from typing import Dict, Tuple, Any, cast
 
 _logger = logging.getLogger(__name__)
 try:
@@ -40,7 +40,7 @@ def _check_status(status: int) -> None:
         raise HsdError(status, message)
 
 
-CtypesPtr = Type[ctypes._Pointer]
+CtypesPtr: Any = ctypes._Pointer
 
 
 def _validate_and_prepare_numpy_pair(
@@ -50,6 +50,7 @@ def _validate_and_prepare_numpy_pair(
     ctypes_ptr_type: CtypesPtr,
     casting: str = 'safe'
 ) -> Tuple[CtypesPtr, CtypesPtr, int]:
+    expected_dtype = np.dtype(expected_dtype)
     if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
         raise TypeError("Inputs must be NumPy arrays.")
     if a.shape != b.shape:
@@ -59,7 +60,7 @@ def _validate_and_prepare_numpy_pair(
 
     if a.dtype != expected_dtype:
         try:
-            a = a.astype(expected_dtype, casting=casting, copy=False)
+            a = a.astype(np.dtype(expected_dtype), casting=casting, copy=False)
         except TypeError:
             raise TypeError(
                 f"Input array 'a' cannot be safely cast to {expected_dtype} from {a.dtype} with casting='{casting}'")
@@ -68,7 +69,7 @@ def _validate_and_prepare_numpy_pair(
 
     if b.dtype != expected_dtype:
         try:
-            b = b.astype(expected_dtype, casting=casting, copy=False)
+            b = b.astype(np.dtype(expected_dtype), casting=casting, copy=False)
         except TypeError:
             raise TypeError(
                 f"Input array 'b' cannot be safely cast to {expected_dtype} from {b.dtype} with casting='{casting}'")
@@ -81,8 +82,8 @@ def _validate_and_prepare_numpy_pair(
         a_ptr = a.ctypes.data_as(ctypes_ptr_type)
         b_ptr = b.ctypes.data_as(ctypes_ptr_type)
     else:
-        a_ptr = ctypes.cast(None, ctypes_ptr_type)
-        b_ptr = ctypes.cast(None, ctypes_ptr_type)
+        a_ptr = ctypes.cast(ctypes.c_void_p(0), ctypes_ptr_type)
+        b_ptr = ctypes.cast(ctypes.c_void_p(0), ctypes_ptr_type)
 
     return cast(CtypesPtr, a_ptr), cast(CtypesPtr, b_ptr), n
 

@@ -3,7 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-007ec6.svg)](../../LICENSE)
 [![Python version](https://img.shields.io/badge/Python-%3E=3.10-blue)](https://github.com/habedi/hsdlib)
 [![PyPI version](https://badge.fury.io/py/hsdpy.svg)](https://badge.fury.io/py/hsdpy)
-[![Pip downloads](https://img.shields.io/pypi/dm/hsdpy.svg)](https://pypi.org/project/hsdpy)
 
 HsdPy library allows users to use [Hsdlib](https://github.com/habedi/hsdlib) in Python.
 

@@ -37,6 +37,12 @@ repos:
 
       - id: test
         name: Run Tests
-        entry: make nexttest
+        entry: make test
+        language: system
+        pass_filenames: false
+
+      - id: python-test
+        name: Run Python Tests
+        entry: make python-test
         language: system
         pass_filenames: false
