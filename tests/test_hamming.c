@@ -12,7 +12,7 @@ void run_hamming_dist_tests(void) {
     printf("\n======= Running Hamming Distance Tests (uint8_t) =======\n");
 
     hsd_func_u8_u64 func_ptr = hsd_dist_hamming_u8;
-    const char *func_name = "hsd_dist_hamming_u8";
+    const char* func_name = "hsd_dist_hamming_u8";
 
     // XOR = {0b001, 0b011, 0b010, 0b000} = {1, 3, 2, 0}
     // Popcounts = {1, 2, 1, 0} -> Sum = 4
@@ -117,10 +117,10 @@ void run_hamming_dist_tests(void) {
     const size_t LARGE_N2 = 4096 + 7;  // Test remainder handling
 
     // Allocate memory
-    uint8_t *large_a1 = (uint8_t *)malloc(LARGE_N1 * sizeof(uint8_t));
-    uint8_t *large_b1 = (uint8_t *)malloc(LARGE_N1 * sizeof(uint8_t));
-    uint8_t *large_a2 = (uint8_t *)malloc(LARGE_N2 * sizeof(uint8_t));
-    uint8_t *large_b2 = (uint8_t *)malloc(LARGE_N2 * sizeof(uint8_t));
+    uint8_t* large_a1 = (uint8_t*)malloc(LARGE_N1 * sizeof(uint8_t));
+    uint8_t* large_b1 = (uint8_t*)malloc(LARGE_N1 * sizeof(uint8_t));
+    uint8_t* large_a2 = (uint8_t*)malloc(LARGE_N2 * sizeof(uint8_t));
+    uint8_t* large_b2 = (uint8_t*)malloc(LARGE_N2 * sizeof(uint8_t));
 
     if (!large_a1 || !large_b1 || !large_a2 || !large_b2) {
         fprintf(stderr, "FAIL: Failed to allocate memory for large vector tests [%s]\n", func_name);

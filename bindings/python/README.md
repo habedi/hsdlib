@@ -3,7 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-007ec6.svg)](../../LICENSE)
 [![Python version](https://img.shields.io/badge/Python-%3E=3.10-blue)](https://github.com/habedi/hsdlib)
 [![PyPI version](https://badge.fury.io/py/hsdpy.svg)](https://badge.fury.io/py/hsdpy)
-[![Pip downloads](https://img.shields.io/pypi/dm/hsdpy.svg)](https://pypi.org/project/hsdpy)
 
 HsdPy library allows users to use [Hsdlib](https://github.com/habedi/hsdlib) in Python.
 
@@ -58,7 +57,8 @@ Check out [hsdpy_example.py](../../examples/hsdpy_example.py) for more detailed 
 
 #### Notes
 
-- `HsdError`: Custom exception raised for internal Hsdlib errors with status code and message.
+- HsdPy provides the `HsdError` exception class for error handling. It is a custom exception class wraps the Hsdlib
+  error codes to make them more Pythonic.
 - All distance and similarity functions expect one-dimensional NumPy arrays as input.
 - Functions will raise `NotImplementedError` if the corresponding Hsdlib function is not implemented for the given data
   type.

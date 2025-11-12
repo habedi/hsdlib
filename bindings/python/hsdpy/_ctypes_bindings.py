@@ -188,7 +188,22 @@ def _setup_signature(func_name, restype, argtypes):
         return None
 
 
-_lib, _lib_info = LibraryLoader.load_hsd_library()
+try:
+    _lib, _lib_info = LibraryLoader.load_hsd_library()
+except OSError as e:
+    logger.warning(f"Could not load native hsdlib during import: {e}")
+    _lib = None
+    # Use the same mapping as LibraryLoader.get_library_naming() for arch
+    try:
+        system, arch, arch_lib_name, generic_lib_name = LibraryLoader.get_library_naming()
+    except Exception:
+        system = platform.system()
+        arch = platform.machine().lower()
+    _lib_info = {
+        "system": system,
+        "arch": arch,
+        "lib_path": "not found"
+    }
 
 hsd_dist_sqeuclidean_f32 = _setup_signature("hsd_dist_sqeuclidean_f32", c_int,
                                             [c_float_p, c_float_p, c_size_t, c_float_p])

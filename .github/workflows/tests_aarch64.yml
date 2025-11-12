@@ -2,6 +2,12 @@ name: Run Tests (Linux; AArch64)
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   push:
     tags:
       - 'v*'
@@ -35,4 +41,3 @@ jobs:
             echo "Tests failed with exit code $(cat .exit_code)"
             exit $(cat .exit_code)
           fi
-

@@ -1,10 +1,16 @@
 name: Run Tests (Makefile; Linux; AMD64)
 
 on:
-  workflow_dispatch:  # Allow manual runs
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   push:
     tags:
-      - 'v*'  # Trigger on version tags
+      - 'v*'
 
 permissions:
   contents: read
@@ -26,4 +32,3 @@ jobs:
       - name: Run Tests for Makefile
         run: |
           bash test_makefile.sh
-

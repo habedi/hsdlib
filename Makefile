@@ -210,7 +210,7 @@ ifeq ($(shell uname -m),aarch64)
 	  HSD_TEST_FORCE_BACKEND=$$t ./$(TEST_RUNNER); \
 	done
 else
-	@echo "Skipping AArch64 tests - not on an aarch64 machine."
+	@echo "Skipping AArch64 tests - not on aarch64 machine."
 endif
 	@echo "=== AArch64 backend tests completed ==="
 
@@ -276,7 +276,7 @@ python-install: ## Install the Python wheel package locally
 	@echo "Python wheel installed successfully"
 
 .PHONY: python-test
-python-test: ## Run Python test suite (with code coverage)
+python-test: python-build ## Run Python test suite (with coverage)
 	@echo "Running Python tests..."
 	@command -v uv >/dev/null 2>&1 || { echo "Error: 'uv' command not found. Please install with 'pip install -U uv'."; exit 1; }
 	@uv run pytest $(BINDINGS_DIR)/python/tests --tb=short --disable-warnings --cov=$(BINDINGS_DIR)/python/hsdpy --cov-branch --cov-report=xml
@@ -482,3 +482,20 @@ all: rebuild test ## Build and run tests
 
 # Include dependency files
 -include $(DEP_FILES)
+
+
+########################################################################################
+## Additional targets
+########################################################################################
+
+.PHONY: setup-hooks
+setup-hooks: ## Install Git hooks (pre-commit and pre-push)
+	@echo "Installing Git hooks..."
+	@pre-commit install --hook-type pre-commit
+	@pre-commit install --hook-type pre-push
+	@pre-commit install-hooks
+
+.PHONY: test-hooks
+test-hooks: ## Test Git hooks on all files
+	@echo "Testing Git hooks..."
+	@pre-commit run --all-files

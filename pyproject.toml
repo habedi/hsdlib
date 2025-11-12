@@ -1,6 +1,6 @@
 [project]
 name = "hsdpy"
-version = "0.1.0-beta.3"
+version = "0.1.0"
 description = "Python bindings for the Hsdlib library"
 authors = [
     { name = "Hassan Abedi", email = "hassan.abedi.t+hsdlib@gmail.com" },
@@ -20,16 +20,17 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "numpy>=2.0.0",
+    "numpy (>=2.0.0,<3.0.0)",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.1",
-    "pytest-cov>=6.0.0",
-    "pyright>=1.1.391",
-    "ruff>=0.9.3",
-    "scipy>=1.15.2",
+    "pre-commit (>=4.2.0,<5.0.0)",
+    "pytest (>=8.0.1,<9.0.0)",
+    "pytest-cov (>=6.0.0,<7.0.0)",
+    "pyright (>=1.1.391,<2.0.0)",
+    "ruff (>=0.9.3,<1.0.0)",
+    "scipy (>=1.15.2,<2.0.0)",
 ]
 
 [project.urls]
@@ -37,7 +38,7 @@ Repository = "https://github.com/habedi/hsdlib"
 Issues = "https://github.com/habedi/hsdlib/issues"
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "build>=1.2.2.post1"]
+requires = ["setuptools>=61.0", "wheel", "build (>=1.2.2.post1,<2.0.0)"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

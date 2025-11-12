@@ -1,3 +1,11 @@
+/*!
+ * @file cosine.c
+ * @brief Cosine similarity implementations and dispatch.
+ *
+ * Implements cosine similarity (float32) with scalar and vectorized backends and
+ * a runtime resolver that selects the best implementation on the first call.
+ */
+
 #include <float.h>
 #include <math.h>
 #include <stdatomic.h>
@@ -15,10 +23,10 @@
 #endif
 #endif
 
-typedef hsd_status_t (*hsd_cosine_f32_func_t)(const float *, const float *, size_t, float *);
+typedef hsd_status_t (*hsd_cosine_f32_func_t)(const float*, const float*, size_t, float*);
 
 static inline hsd_status_t calculate_cosine_similarity_from_sums(float dot_product, float norm_a_sq,
-                                                                 float norm_b_sq, float *result) {
+                                                                 float norm_b_sq, float* result) {
 #if HSD_ALLOW_FP_CHECKS
     if (isnan(dot_product) || isnan(norm_a_sq) || isnan(norm_b_sq) || isinf(dot_product) ||
         isinf(norm_a_sq) || isinf(norm_b_sq)) {
@@ -54,8 +62,8 @@ static inline hsd_status_t calculate_cosine_similarity_from_sums(float dot_produ
     return HSD_SUCCESS;
 }
 
-static hsd_status_t cosine_scalar_internal(const float *a, const float *b, size_t n,
-                                           float *result) {
+static hsd_status_t cosine_scalar_internal(const float* a, const float* b, size_t n,
+                                           float* result) {
     hsd_log("Enter cosine_scalar_internal (n=%zu)", n);
     float dot = 0.0f, na = 0.0f, nb = 0.0f;
     for (size_t i = 0; i < n; ++i) {
@@ -73,9 +81,9 @@ static hsd_status_t cosine_scalar_internal(const float *a, const float *b, size_
 }
 
 #if defined(__x86_64__) || defined(_M_X64)
-__attribute__((target("avx"))) static hsd_status_t cosine_avx_internal(const float *a,
-                                                                       const float *b, size_t n,
-                                                                       float *result) {
+__attribute__((target("avx"))) static hsd_status_t cosine_avx_internal(const float* a,
+                                                                       const float* b, size_t n,
+                                                                       float* result) {
     hsd_log("Enter cosine_avx_internal (n=%zu)", n);
     size_t i = 0;
     __m256 dot_acc = _mm256_setzero_ps();
@@ -115,10 +123,10 @@ __attribute__((target("avx"))) static hsd_status_t cosine_avx_internal(const flo
     return calculate_cosine_similarity_from_sums(dot, na, nb, result);
 }
 
-__attribute__((target("avx2,fma"))) static hsd_status_t cosine_avx2_internal(const float *a,
-                                                                             const float *b,
+__attribute__((target("avx2,fma"))) static hsd_status_t cosine_avx2_internal(const float* a,
+                                                                             const float* b,
                                                                              size_t n,
-                                                                             float *result) {
+                                                                             float* result) {
     hsd_log("Enter cosine_avx2_internal (n=%zu)", n);
     size_t i = 0;
     __m256 dot_acc = _mm256_setzero_ps();
@@ -152,10 +160,10 @@ __attribute__((target("avx2,fma"))) static hsd_status_t cosine_avx2_internal(con
     return calculate_cosine_similarity_from_sums(dot, na, nb, result);
 }
 
-__attribute__((target("avx512f"))) static hsd_status_t cosine_avx512_internal(const float *a,
-                                                                              const float *b,
+__attribute__((target("avx512f"))) static hsd_status_t cosine_avx512_internal(const float* a,
+                                                                              const float* b,
                                                                               size_t n,
-                                                                              float *result) {
+                                                                              float* result) {
     hsd_log("Enter cosine_avx512_internal (n=%zu)", n);
     size_t i = 0;
     __m512 dot_acc = _mm512_setzero_ps();
@@ -191,7 +199,7 @@ __attribute__((target("avx512f"))) static hsd_status_t cosine_avx512_internal(co
 #endif
 
 #if defined(__aarch64__) || defined(__arm__)
-static hsd_status_t cosine_neon_internal(const float *a, const float *b, size_t n, float *result) {
+static hsd_status_t cosine_neon_internal(const float* a, const float* b, size_t n, float* result) {
     hsd_log("Enter cosine_neon_internal (n=%zu)", n);
     size_t i = 0;
     float32x4_t dot_acc = vdupq_n_f32(0.0f);
@@ -239,9 +247,9 @@ static hsd_status_t cosine_neon_internal(const float *a, const float *b, size_t 
 }
 
 #if defined(__ARM_FEATURE_SVE)
-__attribute__((target("+sve"))) static hsd_status_t cosine_sve_internal(const float *a,
-                                                                        const float *b, size_t n,
-                                                                        float *result) {
+__attribute__((target("+sve"))) static hsd_status_t cosine_sve_internal(const float* a,
+                                                                        const float* b, size_t n,
+                                                                        float* result) {
     hsd_log("Enter cosine_sve_internal (n=%zu)", n);
     int64_t i = 0;
     svbool_t pg;
@@ -269,13 +277,13 @@ __attribute__((target("+sve"))) static hsd_status_t cosine_sve_internal(const fl
 #endif
 
 static hsd_cosine_f32_func_t resolve_cosine_f32_internal(void);
-static hsd_status_t cosine_f32_resolver_trampoline(const float *a, const float *b, size_t n,
-                                                   float *result);
+static hsd_status_t cosine_f32_resolver_trampoline(const float* a, const float* b, size_t n,
+                                                   float* result);
 
 static atomic_uintptr_t hsd_cosine_f32_ptr =
     ATOMIC_VAR_INIT((uintptr_t)cosine_f32_resolver_trampoline);
 
-hsd_status_t hsd_sim_cosine_f32(const float *a, const float *b, size_t n, float *result) {
+hsd_status_t hsd_sim_cosine_f32(const float* a, const float* b, size_t n, float* result) {
     if (result == NULL) return HSD_ERR_NULL_PTR;
     if (n == 0) {
         *result = 1.0f;
@@ -291,8 +299,8 @@ hsd_status_t hsd_sim_cosine_f32(const float *a, const float *b, size_t n, float 
     return func(a, b, n, result);
 }
 
-static hsd_status_t cosine_f32_resolver_trampoline(const float *a, const float *b, size_t n,
-                                                   float *result) {
+static hsd_status_t cosine_f32_resolver_trampoline(const float* a, const float* b, size_t n,
+                                                   float* result) {
     hsd_cosine_f32_func_t resolved = resolve_cosine_f32_internal();
     uintptr_t exp = (uintptr_t)cosine_f32_resolver_trampoline;
     atomic_compare_exchange_strong_explicit(&hsd_cosine_f32_ptr, &exp, (uintptr_t)resolved,
@@ -303,7 +311,7 @@ static hsd_status_t cosine_f32_resolver_trampoline(const float *a, const float *
 static hsd_cosine_f32_func_t resolve_cosine_f32_internal(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
     hsd_cosine_f32_func_t chosen = cosine_scalar_internal;
-    const char *reason = "Scalar (Default)";
+    const char* reason = "Scalar (Default)";
 
     if (forced != HSD_BACKEND_AUTO) {
         hsd_log("Cosine F32: Manual backend requested: %d", forced);

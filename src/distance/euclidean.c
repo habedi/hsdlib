@@ -1,3 +1,12 @@
+/*!
+ * @file euclidean.c
+ * @brief Squared Euclidean distance implementations and runtime dispatch.
+ *
+ * This file contains the scalar and vectorized implementations of the
+ * squared Euclidean (L2 squared) distance for float vectors and the
+ * runtime resolver which selects an optimized backend at the first call.
+ */
+
 #include <float.h>
 #include <math.h>
 #include <stdatomic.h>
@@ -21,10 +30,10 @@ extern bool hsd_cpu_has_sve(void);
 #endif
 #endif
 
-typedef hsd_status_t (*hsd_sqeuclidean_f32_func_t)(const float *, const float *, size_t, float *);
+typedef hsd_status_t (*hsd_sqeuclidean_f32_func_t)(const float*, const float*, size_t, float*);
 
-static hsd_status_t sqeuclid_scalar_internal(const float *a, const float *b, size_t n,
-                                             float *result) {
+static hsd_status_t sqeuclid_scalar_internal(const float* a, const float* b, size_t n,
+                                             float* result) {
     hsd_log("Enter sqeuclid_scalar_internal (n=%zu)", n);
     float sum_sq_diff = 0.0f;
     for (size_t i = 0; i < n; ++i) {
@@ -48,9 +57,9 @@ static hsd_status_t sqeuclid_scalar_internal(const float *a, const float *b, siz
 }
 
 #if defined(__x86_64__) || defined(_M_X64)
-__attribute__((target("avx"))) static hsd_status_t sqeuclid_avx_internal(const float *a,
-                                                                         const float *b, size_t n,
-                                                                         float *result) {
+__attribute__((target("avx"))) static hsd_status_t sqeuclid_avx_internal(const float* a,
+                                                                         const float* b, size_t n,
+                                                                         float* result) {
     hsd_log("Enter sqeuclid_avx_internal (n=%zu)", n);
     size_t i = 0;
     __m256 acc = _mm256_setzero_ps();
@@ -85,10 +94,10 @@ __attribute__((target("avx"))) static hsd_status_t sqeuclid_avx_internal(const f
     return HSD_SUCCESS;
 }
 
-__attribute__((target("avx2,fma"))) static hsd_status_t sqeuclid_avx2_internal(const float *a,
-                                                                               const float *b,
+__attribute__((target("avx2,fma"))) static hsd_status_t sqeuclid_avx2_internal(const float* a,
+                                                                               const float* b,
                                                                                size_t n,
-                                                                               float *result) {
+                                                                               float* result) {
     hsd_log("Enter sqeuclid_avx2_internal (n=%zu)", n);
     size_t i = 0;
     __m256 acc = _mm256_setzero_ps();
@@ -119,10 +128,10 @@ __attribute__((target("avx2,fma"))) static hsd_status_t sqeuclid_avx2_internal(c
     return HSD_SUCCESS;
 }
 
-__attribute__((target("avx512f"))) static hsd_status_t sqeuclid_avx512_internal(const float *a,
-                                                                                const float *b,
+__attribute__((target("avx512f"))) static hsd_status_t sqeuclid_avx512_internal(const float* a,
+                                                                                const float* b,
                                                                                 size_t n,
-                                                                                float *result) {
+                                                                                float* result) {
     hsd_log("Enter sqeuclid_avx512_internal (n=%zu)", n);
     size_t i = 0;
     __m512 acc = _mm512_setzero_ps();
@@ -155,8 +164,8 @@ __attribute__((target("avx512f"))) static hsd_status_t sqeuclid_avx512_internal(
 #endif
 
 #if defined(__aarch64__) || defined(__arm__)
-static hsd_status_t sqeuclid_neon_internal(const float *a, const float *b, size_t n,
-                                           float *result) {
+static hsd_status_t sqeuclid_neon_internal(const float* a, const float* b, size_t n,
+                                           float* result) {
     hsd_log("Enter sqeuclid_neon_internal (n=%zu)", n);
     size_t i = 0;
     float32x4_t acc = vdupq_n_f32(0.0f);
@@ -198,9 +207,9 @@ static hsd_status_t sqeuclid_neon_internal(const float *a, const float *b, size_
 }
 
 #if defined(__ARM_FEATURE_SVE)
-__attribute__((target("+sve"))) static hsd_status_t sqeuclid_sve_internal(const float *a,
-                                                                          const float *b, size_t n,
-                                                                          float *result) {
+__attribute__((target("+sve"))) static hsd_status_t sqeuclid_sve_internal(const float* a,
+                                                                          const float* b, size_t n,
+                                                                          float* result) {
     hsd_log("Enter sqeuclid_sve_internal (n=%zu)", n);
     int64_t i = 0;
     int64_t n_sve = (int64_t)n;
@@ -231,13 +240,13 @@ __attribute__((target("+sve"))) static hsd_status_t sqeuclid_sve_internal(const 
 #endif
 
 static hsd_sqeuclidean_f32_func_t resolve_sqeuclidean_f32_internal(void);
-static hsd_status_t sqeuclidean_f32_resolver_trampoline(const float *a, const float *b, size_t n,
-                                                        float *result);
+static hsd_status_t sqeuclidean_f32_resolver_trampoline(const float* a, const float* b, size_t n,
+                                                        float* result);
 
 static atomic_uintptr_t hsd_sqeuclidean_f32_ptr =
     ATOMIC_VAR_INIT((uintptr_t)sqeuclidean_f32_resolver_trampoline);
 
-hsd_status_t hsd_dist_sqeuclidean_f32(const float *a, const float *b, size_t n, float *result) {
+hsd_status_t hsd_dist_sqeuclidean_f32(const float* a, const float* b, size_t n, float* result) {
     if (result == NULL) return HSD_ERR_NULL_PTR;
     if (n == 0) {
         *result = 0.0f;
@@ -252,8 +261,8 @@ hsd_status_t hsd_dist_sqeuclidean_f32(const float *a, const float *b, size_t n, 
     return func(a, b, n, result);
 }
 
-static hsd_status_t sqeuclidean_f32_resolver_trampoline(const float *a, const float *b, size_t n,
-                                                        float *result) {
+static hsd_status_t sqeuclidean_f32_resolver_trampoline(const float* a, const float* b, size_t n,
+                                                        float* result) {
     hsd_log("SqEuclidean F32: resolving backend");
     hsd_sqeuclidean_f32_func_t resolved_func = resolve_sqeuclidean_f32_internal();
     uintptr_t expected = (uintptr_t)sqeuclidean_f32_resolver_trampoline;
@@ -269,7 +278,7 @@ static hsd_status_t sqeuclidean_f32_resolver_trampoline(const float *a, const fl
 static hsd_sqeuclidean_f32_func_t resolve_sqeuclidean_f32_internal(void) {
     HSD_Backend forced = hsd_get_current_backend_choice();
     hsd_sqeuclidean_f32_func_t chosen_func = sqeuclid_scalar_internal;
-    const char *reason = "Scalar (Default)";
+    const char* reason = "Scalar (Default)";
 
     if (forced != HSD_BACKEND_AUTO) {
         hsd_log("SqEuclidean F32: Manual backend requested: %d", forced);
