@@ -67,18 +67,19 @@ class WorkflowTests(unittest.TestCase):
                     self.assertEqual(artifact.exists(), succeeds)
 
     def test_python_setup_precedes_system_pip_bootstrap(self):
-        for workflow, job in [("tests.yml", "makefile"), ("publish_py.yml", "build-wheel")]:
-            with self.subTest(workflow=workflow):
-                setup = False
-                bootstrap = False
-                for step in load_workflow(workflow)["jobs"][job]["steps"]:
-                    if step.get("uses", "").startswith("actions/setup-python@"):
-                        setup = True
-                    command = step.get("run", "")
-                    if "pip install" in command or "make install-deps" in command:
-                        self.assertTrue(setup, "Python setup must precede pip installation")
-                        bootstrap = True
-                self.assertTrue(bootstrap)
+        bootstraps = 0
+        for path in (ROOT / ".github/workflows").glob("*.yml"):
+            for job, config in load_workflow(path.name)["jobs"].items():
+                with self.subTest(workflow=path.name, job=job):
+                    setup = False
+                    for step in config["steps"]:
+                        if step.get("uses", "").startswith("actions/setup-python@"):
+                            setup = True
+                        command = step.get("run", "")
+                        if any(text in command for text in ["pip install", "make install-deps"]):
+                            self.assertTrue(setup, "Python setup must precede pip installation")
+                            bootstraps += 1
+        self.assertGreater(bootstraps, 0)
 
     def test_wheel_tests_do_not_rebuild_the_release(self):
         steps = load_workflow("publish_py.yml")["jobs"]["build-wheel"]["steps"]
