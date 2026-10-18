@@ -1,6 +1,8 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
+    // Track optional directory removal and restoration in the configure cache.
+    b.dependOnDirectoryContents(b.path("."));
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const c_flags: []const []const u8 = &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic" };
@@ -39,7 +41,7 @@ pub fn build(b: *std.Build) void {
         }
     }
 
-    if (sourceExists(b, "tests/main.c")) {
+    if (directoryExists(b, "tests")) {
         const tests_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
         tests_module.addIncludePath(b.path("tests"));
         tests_module.addCSourceFiles(.{
@@ -55,7 +57,7 @@ pub fn build(b: *std.Build) void {
         b.step("test", "Build and run C tests").dependOn(&b.addRunArtifact(tests).step);
     }
 
-    if (sourceExists(b, "examples/hsdlib_example.c")) {
+    if (directoryExists(b, "examples")) {
         const example_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
         example_module.addCSourceFile(.{
             .file = b.path("examples/hsdlib_example.c"),
@@ -67,11 +69,11 @@ pub fn build(b: *std.Build) void {
     }
 }
 
-fn sourceExists(b: *std.Build, path: []const u8) bool {
-    b.dependOnFileMetadata(b.path(path));
-    b.root.access(b.graph.io, path, .{}) catch |err| switch (err) {
+fn directoryExists(b: *std.Build, path: []const u8) bool {
+    const directory = b.root.openDir(b.graph.io, path, .{}) catch |err| switch (err) {
         error.FileNotFound => return false,
         else => std.debug.panic("Unable to access {s}: {t}", .{ path, err }),
     };
+    directory.close(b.graph.io);
     return true;
 }
