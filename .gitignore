@@ -151,5 +151,7 @@ target
 *.d
 *_output.txt
 python/hsdpy/*.c
-#uv.lock
 make_test_logs/
+.claude/
+.agents/
+.codex

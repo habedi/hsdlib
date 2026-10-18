@@ -1,5 +1,3 @@
-# EditorConfig is awesome: https://EditorConfig.org
-
 root = true
 
 [*]
@@ -10,18 +8,12 @@ indent_size = 4
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{c,h}]
-max_line_length = 100
-
-[*.py]
+[*.{c,h,py,pyi,sh}]
 max_line_length = 100
 
 [*.md]
 max_line_length = 120
-trim_trailing_whitespace = false
+trim_trailing_whitespace
 
-[*.sh]
-indent_size = 2
-
-[*.{yml,yaml}]
+[*.{yml,yaml,json}]
 indent_size = 2
