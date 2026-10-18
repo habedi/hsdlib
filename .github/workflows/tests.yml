@@ -133,6 +133,9 @@ jobs:
       - name: Run workflow regression tests
         run: uv run --extra dev python -m unittest discover -s tests -p test_workflows.py
 
+      - name: Test version metadata and source distributions
+        run: uv run --extra dev python tests/test_version.py
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:

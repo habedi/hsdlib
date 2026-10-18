@@ -125,11 +125,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Build and test release wheel
         run: |
           python -m pip install uv
+          python tests/test_version.py VersionTests.test_zig_version_matches_header VersionTests.test_release_tag_matches_header
           uv build --wheel --out-dir dist
           uv venv .venv
           uv pip install dist/*.whl pytest pytest-cov scipy

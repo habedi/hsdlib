@@ -85,6 +85,11 @@ are tuned for the host CPU and should not be assumed portable to older CPUs.
 
 ### Public API and Python Bindings
 
+`HSD_VERSION` in `include/hsdlib.h` is the source of truth for the release version. `setup.py` reads it
+for Python packaging, and `MANIFEST.in` includes the header in source distributions. Keep the literal
+version in `build.zig.zon` and the release tag in sync. Run `uv run --extra dev python tests/test_version.py`
+when changing version metadata or packaging.
+
 Preserve public function signatures, status codes, enum values, and result types in `include/hsdlib.h`.
 Metric functions return `hsd_status_t` and write results through output pointers. Changes to the C API
 must also reach the `ctypes` signatures and Python wrappers in

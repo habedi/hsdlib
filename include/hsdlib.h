@@ -1,6 +1,9 @@
 #ifndef HSDLIB_H
 #define HSDLIB_H
 
+/** @brief Hsdlib release version. */
+#define HSD_VERSION "0.5.0"
+
 #ifdef HSDLIB_NO_CHECKS
 #define HSD_ALLOW_FP_CHECKS 0
 #else

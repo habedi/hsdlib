@@ -1,5 +1,6 @@
-"""Checks for the assembled release wheel, run from an installed wheel environment."""
+"""Checks for the assembled release wheel, run from an environment where with the wheel installed in it."""
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -34,6 +35,10 @@ class ReleaseWheelTests(unittest.TestCase):
         import hsdpy
 
         package = Path(hsdpy.__file__).resolve().parent
+        header = Path("include/hsdlib.h").read_text()
+        version = re.search(r'^#define HSD_VERSION "([^"]+)"$', header, re.MULTILINE)
+        self.assertIsNotNone(version)
+        self.assertEqual(hsdpy.__version__, version.group(1))
         self.assertTrue(package.is_relative_to(Path(sys.prefix).resolve()))
         library = Path(hsdpy.get_library_info()["lib_path"]).resolve()
         self.assertEqual(library.parent, package)
