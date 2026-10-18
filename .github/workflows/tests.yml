@@ -9,11 +9,18 @@ on:
       - 'docs/**'
       - '**.md'
   push:
+    branches:
+      - main
+      - develop
     tags:
       - 'v*'
 
 permissions:
   contents: read
+
+#concurrency:
+#  group: ${{ github.workflow }}-${{ github.ref }}
+#  cancel-in-progress: true
 
 jobs:
   c:
