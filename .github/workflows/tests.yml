@@ -87,6 +87,9 @@ jobs:
       - name: Check optimized builds
         run: zig build test -Dcpu=baseline -Doptimize=fast
 
+      - name: Test packages with optional sources
+        run: python3 tests/test_zig_package.py
+
       - name: Test installed shared library
         run: |
           mkdir -p zig-out/bin

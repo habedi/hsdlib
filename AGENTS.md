@@ -64,7 +64,8 @@ Priorities, in order:
 - `.github/workflows/`: AMD64 and AArch64 tests and benchmarks, Python tests, linting, and publishing.
 - `Makefile`: Library builds, tests, benchmarks, Python packaging, formatting, and documentation.
 - `build.zig` and `build.zig.zon`: Optional Zig 0.17.0 build for C libraries, tests, and the C example.
-  Default installation goes under `zig-out/`.
+  Default installation goes under `zig-out/`. Zig packages omit `tests/` and `examples/`; their build
+  targets are registered only when the corresponding sources are present.
 - `pyproject.toml`: Python packaging, dependencies, Ruff, and Pyright configuration.
 - `flake.nix`: Nix development shell and Nix formatter. Enter with `nix develop`.
 - `.clang-format`: Google base style, four-space indentation, and a 100-column limit.

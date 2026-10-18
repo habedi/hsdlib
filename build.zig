@@ -39,26 +39,39 @@ pub fn build(b: *std.Build) void {
         }
     }
 
-    const tests_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
-    tests_module.addIncludePath(b.path("tests"));
-    tests_module.addCSourceFiles(.{
-        .files = &.{
-            "tests/main.c",           "tests/test_common.c",    "tests/test_utils.c",
-            "tests/test_euclidean.c", "tests/test_manhattan.c", "tests/test_hamming.c",
-            "tests/test_dot.c",       "tests/test_cosine.c",    "tests/test_jaccard.c",
-        },
-        .flags = executable_flags,
-    });
-    tests_module.linkLibrary(static_library);
-    const tests = b.addExecutable(.{ .name = "test_runner", .root_module = tests_module });
-    b.step("test", "Build and run C tests").dependOn(&b.addRunArtifact(tests).step);
+    if (sourceExists(b, "tests/main.c")) {
+        const tests_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+        tests_module.addIncludePath(b.path("tests"));
+        tests_module.addCSourceFiles(.{
+            .files = &.{
+                "tests/main.c",           "tests/test_common.c",    "tests/test_utils.c",
+                "tests/test_euclidean.c", "tests/test_manhattan.c", "tests/test_hamming.c",
+                "tests/test_dot.c",       "tests/test_cosine.c",    "tests/test_jaccard.c",
+            },
+            .flags = executable_flags,
+        });
+        tests_module.linkLibrary(static_library);
+        const tests = b.addExecutable(.{ .name = "test_runner", .root_module = tests_module });
+        b.step("test", "Build and run C tests").dependOn(&b.addRunArtifact(tests).step);
+    }
 
-    const example_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
-    example_module.addCSourceFile(.{
-        .file = b.path("examples/hsdlib_example.c"),
-        .flags = executable_flags,
-    });
-    example_module.linkLibrary(static_library);
-    const example = b.addExecutable(.{ .name = "hsdlib_example", .root_module = example_module });
-    b.step("example", "Build and run the C example").dependOn(&b.addRunArtifact(example).step);
+    if (sourceExists(b, "examples/hsdlib_example.c")) {
+        const example_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+        example_module.addCSourceFile(.{
+            .file = b.path("examples/hsdlib_example.c"),
+            .flags = executable_flags,
+        });
+        example_module.linkLibrary(static_library);
+        const example = b.addExecutable(.{ .name = "hsdlib_example", .root_module = example_module });
+        b.step("example", "Build and run the C example").dependOn(&b.addRunArtifact(example).step);
+    }
+}
+
+fn sourceExists(b: *std.Build, path: []const u8) bool {
+    b.dependOnFileMetadata(b.path(path));
+    b.root.access(b.graph.io, path, .{}) catch |err| switch (err) {
+        error.FileNotFound => return false,
+        else => std.debug.panic("Unable to access {s}: {t}", .{ path, err }),
+    };
+    return true;
 }
