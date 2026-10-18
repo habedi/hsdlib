@@ -20,6 +20,7 @@
           name = "hsdlib-dev";
 
           packages = with pkgs; [
+            zig_0_17
             stdenv.cc
             gnumake
             clang

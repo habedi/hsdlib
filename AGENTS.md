@@ -63,6 +63,8 @@ Priorities, in order:
 - `examples/`: C and Python usage examples.
 - `.github/workflows/`: AMD64 and AArch64 tests and benchmarks, Python tests, linting, and publishing.
 - `Makefile`: Library builds, tests, benchmarks, Python packaging, formatting, and documentation.
+- `build.zig` and `build.zig.zon`: Optional Zig 0.17.0 build for C libraries, tests, and the C example.
+  Default installation goes under `zig-out/`.
 - `pyproject.toml`: Python packaging, dependencies, Ruff, and Pyright configuration.
 - `flake.nix`: Nix development shell and Nix formatter. Enter with `nix develop`.
 - `.clang-format`: Google base style, four-space indentation, and a 100-column limit.
@@ -104,8 +106,8 @@ instructions must stay behind the appropriate compile-time and runtime guards.
 
 ## Development and Validation
 
-Use `make help` for the complete target list. The Nix shell provides the C toolchain, analysis and
-documentation tools, Python, and uv. For Python work, run `uv sync --extra dev` inside the shell to
+Use `make help` for the complete Make target list. The Nix shell provides Zig 0.17.0, the C toolchain,
+analysis and documentation tools, Python, and uv. For Python work, run `uv sync --extra dev` inside the shell to
 install the project's runtime and development dependencies into `.venv`.
 
 Run the checks relevant to the files changed:
@@ -114,6 +116,9 @@ Run the checks relevant to the files changed:
 |------------------|-------------------------------------------|---------------------------------------------------------------|
 | C build          | `make build`                              | Static and shared libraries                                   |
 | C tests          | `make test`                               | C suite with automatic backend selection                      |
+| Zig build        | `zig build`                               | Static and shared libraries, and header installation           |
+| Zig tests        | `zig build test -Dcpu=baseline`            | C suite with a baseline CPU target                             |
+| Zig example      | `zig build example`                       | C example                                                     |
 | Scalar tests     | `HSD_TEST_FORCE_BACKEND=SCALAR make test` | C suite with scalar dispatch                                  |
 | AMD64 backends   | `make test-amd64`                         | Backend sweep on an AMD64 host                                |
 | AArch64 backends | `make test-aarch64`                       | Backend sweep on an AArch64 host                              |
@@ -137,7 +142,9 @@ changes do not require C formatting or a full test run.
 
 `make clean`, `make rebuild`, `make python-build`, and benchmark builds remove generated artifacts,
 including package-local native libraries. Do not run these concurrently with other builds or tests.
-There are no Zig build files or dedicated `asan`, `ubsan`, or `memcheck` Make targets. For memory or
+Zig builds are independent of Make artifacts. Use Zig 0.17.0 and `zig fmt --check build.zig build.zig.zon`
+when changing that build. Run baseline tests on AMD64 and AArch64, and check an AArch64 cross build.
+There are no dedicated `asan`, `ubsan`, or `memcheck` Make targets. For memory or
 SIMD buffer changes, use an instrumented compiler build or Valgrind and report the exact command used.
 
 ## Testing Expectations

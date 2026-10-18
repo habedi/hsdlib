@@ -55,6 +55,29 @@ ls lib # Check the built library files (libhsd.so, libhsd.a, etc.)
 After the build is complete, you can include the [hsdlib.h](include/hsdlib.h) header file in your C (or C++) code and
 link against the library files in the `lib` directory.
 
+#### Build with Zig
+
+Zig 0.17.0 provides an alternative build for the C library, tests, and example:
+
+```bash
+zig build                         # Install static and shared libraries, and hsdlib.h
+zig build test                    # Run the existing C test suite
+zig build example                 # Run the C example
+zig build -Doptimize=fast          # Optimized libraries
+zig build test -Dcpu=baseline      # Test with a baseline CPU target
+```
+
+Libraries are installed under `zig-out/lib/`, and the header under `zig-out/include/`.
+Use `nix develop` for a shell with Zig 0.17.0 and the other development tools.
+Target selection uses Zig's standard options, for example:
+
+```bash
+zig build -Dtarget=aarch64-linux-gnu -Dcpu=baseline --prefix zig-out/aarch64
+```
+
+Cross-compilation builds libraries for the target; running tests requires a compatible machine.
+Python packaging, benchmarks, documentation, and linting continue to use Make.
+
 #### Python Bindings
 
 To use Hsdlib in Python, you can install the [HsdPy](bindings/python) package using pip:

@@ -1,6 +1,7 @@
 """Regression checks for test and release workflow behavior."""
 
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -16,6 +17,16 @@ def load_workflow(name):
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_zig_build_includes_all_c_sources_and_tests(self):
+        build = (ROOT / "build.zig").read_text()
+        listed = set(re.findall(r'"((?:src|tests|examples)/[^"\n]+\.c)"', build))
+        expected = {
+            path.relative_to(ROOT).as_posix()
+            for path in [*(ROOT / "src").rglob("*.c"), *(ROOT / "tests").glob("*.c")]
+        }
+        expected.add("examples/hsdlib_example.c")
+        self.assertEqual(listed, expected)
+
     def test_native_release_runners_match_artifact_architectures(self):
         matrix = load_workflow("publish_py.yml")["jobs"]["build-libraries"]["strategy"]["matrix"]
         runners = {

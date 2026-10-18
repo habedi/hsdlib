@@ -57,6 +57,49 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  zig:
+    name: Zig (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2.2.1
+        with:
+          version: '0.17.0'
+
+      - name: Check Zig formatting
+        run: zig fmt --check build.zig build.zig.zon
+
+      - name: Build libraries and run baseline tests
+        run: |
+          zig build -Dcpu=baseline
+          zig build test -Dcpu=baseline
+          HSD_TEST_FORCE_BACKEND=SCALAR zig build test -Dcpu=baseline
+          zig build example -Dcpu=baseline
+
+      - name: Check optimized builds
+        run: zig build test -Dcpu=baseline -Doptimize=fast
+
+      - name: Test installed shared library
+        run: |
+          mkdir -p zig-out/bin
+          cc -std=gnu2x -Izig-out/include -Itests tests/*.c -Lzig-out/lib -lhsd -lm \
+            -Wl,-rpath,"$PWD/zig-out/lib" -o zig-out/bin/test_shared
+          zig-out/bin/test_shared
+
+      - name: Check AArch64 cross compilation
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          zig build -Dtarget=aarch64-linux-gnu -Dcpu=baseline --prefix zig-out/aarch64
+          file zig-out/aarch64/lib/libhsd.so | grep -i aarch64
+
   python:
     name: Python (${{ matrix.python-version }})
     runs-on: ubuntu-latest

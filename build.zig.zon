@@ -1,0 +1,16 @@
+.{
+    .name = .hsdlib,
+    .version = "0.1.0",
+    .fingerprint = 0x91d340160456f42,
+    .minimum_zig_version = "0.17.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "include",
+        "src",
+        "tests",
+        "examples",
+        "LICENSE",
+        "README.md",
+    },
+}
