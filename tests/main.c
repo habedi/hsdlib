@@ -13,6 +13,7 @@ static HSD_Backend backend_from_string(const char* str) {
     if (strcasecmp(str, "AVX2") == 0) return HSD_BACKEND_AVX2;
     if (strcasecmp(str, "AVX512F") == 0) return HSD_BACKEND_AVX512F;
     if (strcasecmp(str, "AVX512BW") == 0) return HSD_BACKEND_AVX512BW;
+    if (strcasecmp(str, "AVX512DQ") == 0) return HSD_BACKEND_AVX512DQ;
     if (strcasecmp(str, "AVX512VPOPCNTDQ") == 0) return HSD_BACKEND_AVX512VPOPCNTDQ;
     if (strcasecmp(str, "NEON") == 0) return HSD_BACKEND_NEON;
     if (strcasecmp(str, "SVE") == 0) return HSD_BACKEND_SVE;
@@ -27,7 +28,31 @@ extern void run_cosine_sim_tests(void);
 extern void run_dot_sim_tests(void);
 extern void run_jaccard_sim_tests(void);
 
+static void run_backend_parser_tests(void) {
+    const struct {
+        const char* name;
+        HSD_Backend expected;
+    } cases[] = {
+        {NULL, HSD_BACKEND_AUTO},           {"AUTO", HSD_BACKEND_AUTO},
+        {"SCALAR", HSD_BACKEND_SCALAR},     {"AVX", HSD_BACKEND_AVX},
+        {"AVX2", HSD_BACKEND_AVX2},         {"AVX512F", HSD_BACKEND_AVX512F},
+        {"AVX512BW", HSD_BACKEND_AVX512BW}, {"AVX512DQ", HSD_BACKEND_AVX512DQ},
+        {"avx512dq", HSD_BACKEND_AVX512DQ}, {"AVX512VPOPCNTDQ", HSD_BACKEND_AVX512VPOPCNTDQ},
+        {"NEON", HSD_BACKEND_NEON},         {"SVE", HSD_BACKEND_SVE},
+        {"unknown", HSD_BACKEND_AUTO},
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+        if (backend_from_string(cases[i].name) != cases[i].expected) {
+            fprintf(stderr, "FAIL: Backend parsing for %s\n",
+                    cases[i].name ? cases[i].name : "NULL");
+            g_test_failed++;
+        }
+    }
+}
+
 int main(void) {
+    g_test_failed = 0;
+    run_backend_parser_tests();
     const char* forced_backend_str = getenv("HSD_TEST_FORCE_BACKEND");
     HSD_Backend backend_to_force = backend_from_string(forced_backend_str);
 
@@ -42,8 +67,6 @@ int main(void) {
         printf(">>> Using Backend: AUTO <<<\n");
         hsd_set_manual_backend(HSD_BACKEND_AUTO);  // Ensure auto mode
     }
-
-    g_test_failed = 0;
 
     // Run all tests
     run_manhattan_dist_tests();

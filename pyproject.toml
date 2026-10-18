@@ -29,6 +29,7 @@ dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.0.1",
     "pytest-cov>=6.0.0",
+    "pyyaml>=6.0.0",
     "pyright>=1.1.391",
     "ruff>=0.9.3",
     "scipy>=1.15.2",
