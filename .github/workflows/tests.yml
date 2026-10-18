@@ -29,22 +29,22 @@ jobs:
             runner: ubuntu-24.04-arm
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y make gcc
 
-      - name: Run Backend Tests
+      - name: Run backend tests
         run: make test-${{ matrix.arch }}
 
-      - name: Generate Coverage Report
+      - name: Generate coverage report
         if: matrix.arch == 'amd64'
         run: make cov
 
-      - name: Upload Coverage Reports to Codecov
+      - name: Upload coverage reports to Codecov
         if: matrix.arch == 'amd64'
         uses: codecov/codecov-action@v5
         with:
@@ -59,7 +59,7 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13']
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -67,17 +67,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y make gcc
           python -m pip install uv
           uv sync --extra dev --python "${{ matrix.python-version }}"
 
-      - name: Run Tests for HsdPy
+      - name: Run tests for HsdPy
         run: make python-test
 
-      - name: Upload Coverage Reports to Codecov
+      - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -88,14 +88,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y make bash bc
           make install-deps
 
-      - name: Run Tests for Makefile
+      - name: Run tests for Makefile
         run: bash test_makefile.sh

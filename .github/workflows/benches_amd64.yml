@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Show CPU specs
@@ -32,11 +32,11 @@ jobs:
           echo "=== Full lscpu Dump ==="
           lscpu
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y make
           make install-deps
 
-      - name: Run Benchmarks for AMD64
+      - name: Run benchmarks for AMD64
         run: make bench-amd64
