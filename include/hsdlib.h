@@ -1,6 +1,9 @@
 #ifndef HSDLIB_H
 #define HSDLIB_H
 
+/** @brief Hsdlib release version. */
+#define HSD_VERSION "0.5.0"
+
 #ifdef HSDLIB_NO_CHECKS
 #define HSD_ALLOW_FP_CHECKS 0
 #else
@@ -18,7 +21,7 @@
 #define HSD_ASM asm volatile
 #endif
 
-#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
+#if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
 #endif
 
@@ -30,11 +33,11 @@
  * (0) before using output values.
  */
 typedef enum {
-    HSD_SUCCESS = 0,               /**< Operation completed successfully */
-    HSD_ERR_NULL_PTR = -1,         /**< A required pointer argument was NULL */
-    HSD_ERR_INVALID_INPUT = -3,    /**< Input contained NaN, Inf, or otherwise invalid values */
-    HSD_ERR_CPU_NOT_SUPPORTED = -4,/**< Requested backend is not supported on this machine */
-    HSD_FAILURE = -99              /**< Generic failure */
+    HSD_SUCCESS = 0,                /**< Operation completed successfully */
+    HSD_ERR_NULL_PTR = -1,          /**< A required pointer argument was NULL */
+    HSD_ERR_INVALID_INPUT = -3,     /**< Input contained NaN, Inf, or otherwise invalid values */
+    HSD_ERR_CPU_NOT_SUPPORTED = -4, /**< Requested backend is not supported on this machine */
+    HSD_FAILURE = -99               /**< Generic failure */
 } HSD_Status;
 
 typedef HSD_Status hsd_status_t;
@@ -56,16 +59,16 @@ typedef struct {
  * is selected at runtime.
  */
 typedef enum {
-    HSD_BACKEND_AUTO = 0,          /**< Auto-select the best backend */
-    HSD_BACKEND_SCALAR,            /**< Portable scalar implementation */
-    HSD_BACKEND_AVX,               /**< AVX implementation (x86) */
-    HSD_BACKEND_AVX2,              /**< AVX2 implementation (x86) */
-    HSD_BACKEND_AVX512F,           /**< AVX-512 (foundation) implementation (x86) */
-    HSD_BACKEND_AVX512BW,          /**< AVX-512 BW support (x86) */
-    HSD_BACKEND_AVX512DQ,          /**< AVX-512 DQ support (x86) */
-    HSD_BACKEND_AVX512VPOPCNTDQ,   /**< AVX-512 VPOPCNTDQ support (x86) */
-    HSD_BACKEND_NEON,              /**< NEON implementation (ARM) */
-    HSD_BACKEND_SVE                /**< SVE implementation (ARM SVE) */
+    HSD_BACKEND_AUTO = 0,        /**< Auto-select the best backend */
+    HSD_BACKEND_SCALAR,          /**< Portable scalar implementation */
+    HSD_BACKEND_AVX,             /**< AVX implementation (x86) */
+    HSD_BACKEND_AVX2,            /**< AVX2 implementation (x86) */
+    HSD_BACKEND_AVX512F,         /**< AVX-512 (foundation) implementation (x86) */
+    HSD_BACKEND_AVX512BW,        /**< AVX-512 BW support (x86) */
+    HSD_BACKEND_AVX512DQ,        /**< AVX-512 DQ support (x86) */
+    HSD_BACKEND_AVX512VPOPCNTDQ, /**< AVX-512 VPOPCNTDQ support (x86) */
+    HSD_BACKEND_NEON,            /**< NEON implementation (ARM) */
+    HSD_BACKEND_SVE              /**< SVE implementation (ARM SVE) */
 } HSD_Backend;
 
 #ifdef __cplusplus
@@ -234,10 +237,8 @@ static inline void hsdlib_internal_do_log(const char* format, ...) {
 #define hsd_log(...) ((void)0)
 #endif
 
-#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
-#include <immintrin.h>
-
-static inline float hsd_internal_hsum_avx_f32(__m256 acc) {
+#if defined(__x86_64__) || defined(_M_X64)
+__attribute__((target("avx"))) static inline float hsd_internal_hsum_avx_f32(__m256 acc) {
     __m128 hsum_128 = _mm_add_ps(_mm256_castps256_ps128(acc), _mm256_extractf128_ps(acc, 1));
     hsum_128 = _mm_hadd_ps(hsum_128, hsum_128);
     hsum_128 = _mm_hadd_ps(hsum_128, hsum_128);

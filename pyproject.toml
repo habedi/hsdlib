@@ -1,11 +1,11 @@
 [project]
 name = "hsdpy"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Python bindings for the Hsdlib library"
 authors = [
     { name = "Hassan Abedi", email = "hassan.abedi.t+hsdlib@gmail.com" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
 readme = "bindings/python/README.md"
 license = { text = "MIT" }
 keywords = ["python binding", "simd", "distance metrics", "similarity measures"]
@@ -18,19 +18,21 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "numpy (>=2.0.0,<3.0.0)",
+    "numpy>=2.0.0,<3.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pre-commit (>=4.2.0,<5.0.0)",
-    "pytest (>=8.0.1,<9.0.0)",
-    "pytest-cov (>=6.0.0,<7.0.0)",
-    "pyright (>=1.1.391,<2.0.0)",
-    "ruff (>=0.9.3,<1.0.0)",
-    "scipy (>=1.15.2,<2.0.0)",
+    "pre-commit>=4.2.0",
+    "pytest>=8.0.1",
+    "pytest-cov>=6.0.0",
+    "pyyaml>=6.0.0",
+    "pyright>=1.1.391",
+    "ruff>=0.9.3",
+    "scipy>=1.15.2",
 ]
 
 [project.urls]
@@ -47,6 +49,9 @@ package-dir = { "" = "bindings/python" }
 
 [tool.setuptools.package-data]
 hsdpy = ["*.so", "*.dylib", "*.dll"]
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "setup.py" }, { file = "include/hsdlib.h" }]
 
 [tool.pyright]
 include = ["bindings/python/hsdpy", "bindings/python/tests"]

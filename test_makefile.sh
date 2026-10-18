@@ -38,6 +38,8 @@ contains() {
 printf "%-20s %-8s %-10s\n" "target" "status" "duration"
 printf "%-20s %-8s %-10s\n" "------" "------" "--------"
 
+failed=0
+
 for tgt in "${TARGETS[@]}"; do
   if contains "$tgt" "${SKIP_TARGETS[@]}"; then
     printf "%-20s %-8s %-10s\n" "$tgt" "skipped" "-"
@@ -51,6 +53,8 @@ for tgt in "${TARGETS[@]}"; do
     status="ok"
   else
     status="fail"
+    failed=1
+    cat "$log_file"
   fi
 
   end=$(date +%s.%N)
@@ -59,3 +63,5 @@ for tgt in "${TARGETS[@]}"; do
 
   printf "%-20s %-8s %-10s\n" "$tgt" "$status" "${duration}s"
 done
+
+exit "$failed"

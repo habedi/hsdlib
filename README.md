@@ -6,10 +6,10 @@
 
 <h2>Hsdlib</h2>
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/tests_amd64.yml?label=tests&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/tests_amd64.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/tests.yml?label=tests&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/tests.yml)
 [![Benches](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/benches_amd64.yml?label=benches&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/benches_amd64.yml)
+[![Zig](https://img.shields.io/badge/zig-0.17.0-F7A41D?style=flat&labelColor=282c34&logo=zig)](https://ziglang.org)
 [![Code Coverage](https://img.shields.io/codecov/c/github/habedi/hsdlib?label=coverage&style=flat&labelColor=282c34&logo=codecov)](https://codecov.io/gh/habedi/hsdlib)
-[![CodeFactor](https://img.shields.io/codefactor/grade/github/habedi/hsdlib?label=code%20quality&style=flat&labelColor=282c34&logo=codefactor)](https://www.codefactor.io/repository/github/habedi/hsdlib)
 [![License](https://img.shields.io/badge/license-MIT-007ec6?label=license&style=flat&labelColor=282c34&logo=open-source-initiative)](https://github.com/habedi/hsdlib)
 [![Release](https://img.shields.io/github/release/habedi/hsdlib.svg?label=release&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/releases/latest)
 
@@ -55,6 +55,31 @@ ls lib # Check the built library files (libhsd.so, libhsd.a, etc.)
 
 After the build is complete, you can include the [hsdlib.h](include/hsdlib.h) header file in your C (or C++) code and
 link against the library files in the `lib` directory.
+
+#### Build with Zig
+
+Zig 0.17.0 provides an alternative build for the C library, tests, and example:
+
+```bash
+zig build                         # Install static and shared libraries, and hsdlib.h
+zig build test                    # Run the existing C test suite
+zig build example                 # Run the C example
+zig build -Doptimize=fast          # Optimized build for speed
+zig build test -Dcpu=baseline      # Test with a baseline CPU target
+```
+
+Libraries are installed under `zig-out/lib/`, and the header under `zig-out/include/`.
+Zig packages omit tests and examples. The `test` and `example` targets are available when their source
+directories are present, as in a full repository checkout.
+Use `nix develop` for a shell with Zig 0.17.0 and the other development tools.
+Target selection uses Zig's standard options, for example:
+
+```bash
+zig build -Dtarget=aarch64-linux-gnu -Dcpu=baseline --prefix zig-out/aarch64
+```
+
+Cross-compilation builds libraries for the target; running tests requires a compatible machine.
+Python packaging, benchmarks, documentation, and linting continue to use Make.
 
 #### Python Bindings
 
@@ -201,10 +226,10 @@ In case the CPU does not support the required instruction set, the function will
 
 ### Tests and Benchmarks
 
-| File                  | Description               |
-|:----------------------|:--------------------------|
-| [`tests`](tests/)     | Unit tests for Hsdlib API |
-| [`benches`](benches/) | Benchmarks for Hsdlib API |
+| File                 | Description               |
+|:---------------------|:--------------------------|
+| [`tests`](tests)     | Unit tests for Hsdlib API |
+| [`benches`](benches) | Benchmarks for Hsdlib API |
 
 To run the tests and benchmarks, use the `make test` and `make bench` commands.
 

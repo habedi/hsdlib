@@ -1,0 +1,170 @@
+name: Run Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+#concurrency:
+#  group: ${{ github.workflow }}-${{ github.ref }}
+#  cancel-in-progress: true
+
+jobs:
+  c:
+    name: C (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc
+
+      - name: Run backend tests
+        run: make test-${{ matrix.arch }}
+
+      - name: Generate coverage report
+        if: matrix.arch == 'amd64'
+        run: make cov
+
+      - name: Upload coverage reports to Codecov
+        if: matrix.arch == 'amd64'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  zig:
+    name: Zig (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2.2.1
+        with:
+          version: '0.17.0'
+
+      - name: Check Zig formatting
+        run: zig fmt --check build.zig build.zig.zon
+
+      - name: Build libraries and run baseline tests
+        run: |
+          zig build -Dcpu=baseline
+          zig build test -Dcpu=baseline
+          HSD_TEST_FORCE_BACKEND=SCALAR zig build test -Dcpu=baseline
+          zig build example -Dcpu=baseline
+
+      - name: Check optimized builds
+        run: zig build test -Dcpu=baseline -Doptimize=fast
+
+      - name: Test packages with optional sources
+        run: python3 tests/test_zig_package.py
+
+      - name: Test installed shared library
+        run: |
+          mkdir -p zig-out/bin
+          cc -std=gnu2x -Izig-out/include -Itests tests/*.c -Lzig-out/lib -lhsd -lm \
+            -Wl,-rpath,"$PWD/zig-out/lib" -o zig-out/bin/test_shared
+          zig-out/bin/test_shared
+
+      - name: Check AArch64 cross compilation
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          zig build -Dtarget=aarch64-linux-gnu -Dcpu=baseline --prefix zig-out/aarch64
+          file zig-out/aarch64/lib/libhsd.so | grep -i aarch64
+          for source in tests/*.c; do
+            zig cc -target aarch64-linux-gnu -std=gnu2x -Wall -Wextra -pedantic \
+              -Werror=implicit-function-declaration -Iinclude -Itests \
+              -c "$source" -o "zig-out/aarch64/${source##*/}.o"
+          done
+
+  python:
+    name: Python (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ '3.10', '3.11', '3.12', '3.13', "3.14" ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc
+          python -m pip install uv
+          uv sync --extra dev --python "${{ matrix.python-version }}"
+
+      - name: Run tests for HsdPy
+        run: make python-test
+
+      - name: Run workflow regression tests
+        run: uv run --extra dev python -m unittest discover -s tests -p test_workflows.py
+
+      - name: Test version metadata and source distributions
+        run: uv run --extra dev python tests/test_version.py
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+
+  makefile:
+    name: Makefile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make bash bc
+          make install-deps
+
+      - name: Run tests for Makefile
+        run: bash test_makefile.sh
