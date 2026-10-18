@@ -1,4 +1,4 @@
-"""Checks for the assembled release wheel, run from an environment where with the wheel installed in it."""
+"""Checks for the assembled release wheel, run with the wheel installed."""
 
 import re
 import sys

@@ -102,6 +102,11 @@ jobs:
         run: |
           zig build -Dtarget=aarch64-linux-gnu -Dcpu=baseline --prefix zig-out/aarch64
           file zig-out/aarch64/lib/libhsd.so | grep -i aarch64
+          for source in tests/*.c; do
+            zig cc -target aarch64-linux-gnu -std=gnu2x -Wall -Wextra -pedantic \
+              -Werror=implicit-function-declaration -Iinclude -Itests \
+              -c "$source" -o "zig-out/aarch64/${source##*/}.o"
+          done
 
   python:
     name: Python (${{ matrix.python-version }})
