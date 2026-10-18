@@ -6,7 +6,7 @@
 
 <h2>Hsdlib</h2>
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/tests_amd64.yml?label=tests&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/tests_amd64.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/tests.yml?label=tests&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/tests.yml)
 [![Benches](https://img.shields.io/github/actions/workflow/status/habedi/hsdlib/benches_amd64.yml?label=benches&style=flat&labelColor=282c34&logo=github)](https://github.com/habedi/hsdlib/actions/workflows/benches_amd64.yml)
 [![Code Coverage](https://img.shields.io/codecov/c/github/habedi/hsdlib?label=coverage&style=flat&labelColor=282c34&logo=codecov)](https://codecov.io/gh/habedi/hsdlib)
 [![License](https://img.shields.io/badge/license-MIT-007ec6?label=license&style=flat&labelColor=282c34&logo=open-source-initiative)](https://github.com/habedi/hsdlib)
