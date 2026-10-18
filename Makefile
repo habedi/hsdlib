@@ -82,14 +82,7 @@ BUILD_TYPE ?= debug
 ####################################################################################################
 ## Compiler Flags
 ####################################################################################################
-CFLAGS_COMMON := -Wall -Wextra -pedantic -fPIC -Iinclude -march=native
-
-# Conditional flags based on architecture (AMD64 or AArch64)
-ifeq ($(ARCH),x86_64)
-CFLAGS_COMMON += -march=native -mfma
-else
-CFLAGS_COMMON += -march=native
-endif
+CFLAGS_COMMON := -Wall -Wextra -pedantic -fPIC -Iinclude
 
 LIB_CFLAGS := $(CFLAGS_COMMON) -std=c11
 TEST_CFLAGS := $(CFLAGS_COMMON) -std=gnu2x -I$(TEST_DIR)

@@ -47,6 +47,13 @@ jobs:
       - name: Run backend tests
         run: make test-${{ matrix.arch }}
 
+      - name: Test release compatibility without AVX
+        if: matrix.arch == 'amd64'
+        run: |
+          sudo apt-get install -y qemu-user
+          make test BUILD_TYPE=release TARGET_DIR=obj/portable BIN_DIR=bin/portable
+          qemu-x86_64 -cpu Nehalem bin/portable/test_runner
+
       - name: Generate coverage report
         if: matrix.arch == 'amd64'
         run: make cov

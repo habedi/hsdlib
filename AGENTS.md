@@ -80,8 +80,9 @@ Build artifacts and the C test runner go under `obj/` and `bin/`, respectively.
 
 The C library uses C11, compiler intrinsics, and architecture-specific feature detection. The Makefile
 prefers GCC, falls back to Clang, and allows an override such as `make test CC=clang`. Tests and the C
-example use `-std=gnu2x`. Common flags include `-Wall -Wextra -pedantic` and `-march=native`, so builds
-are tuned for the host CPU and should not be assumed portable to older CPUs.
+example use `-std=gnu2x`. Common flags include `-Wall -Wextra -pedantic`. Keep ordinary code at the
+compiler's baseline CPU target; SIMD implementations enable their own features through target
+attributes and runtime checks. Global `-march=native` or `-mfma` flags can break distributed binaries.
 
 ### Public API and Python Bindings
 
